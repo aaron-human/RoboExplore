@@ -1,0 +1,52 @@
+html, body {
+	height: 100%;
+	margin: 0;
+	padding: 0;
+
+	background: black;
+	color: white;
+}
+
+main {
+	display: flex;
+	flex-flow: column;
+
+	width: 100%;
+	height: 100%;
+
+	margin: 0;
+	padding: 0;
+}
+
+h1 {
+	text-align: center;
+	margin: 0;
+	border-bottom: 1px solid white;
+
+	flex: 0 1 auto;
+}
+
+div#text_container {
+	position: relative; /* So the "dynamic_text" can position relative to this. */
+
+	margin-left: auto;
+	margin-right: auto;
+
+	width: 100%;
+	min-height: 100px;
+	flex: 1 1 0;
+
+	overflow: hidden;
+}
+
+.dynamic_text {
+	position: absolute;
+	overflow: hidden;
+	pointer-events: none; /* Pass mouse events through to the canvas below. */
+}
+
+canvas {
+	display: block;
+	width: 100%;
+	height: 100%;
+}

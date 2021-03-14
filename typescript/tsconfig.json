@@ -1,0 +1,8 @@
+{
+	"compilerOptions": {
+		"target": "ES6",
+		"declaration": true,
+		"outFile": "../site/typescript.js",
+	},
+	"include": ["*.ts"],
+}

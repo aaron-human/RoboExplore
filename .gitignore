@@ -1,0 +1,12 @@
+__pycache__/**
+
+typescript/rust.d.ts
+
+site/typescript.*
+site/test.js
+site/qunit-*
+site/rust.*
+
+tests/*.d.ts
+
+rust/target/**
