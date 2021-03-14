@@ -177,6 +177,11 @@ namespace ExampleProject {
 					texture(texture_sampler, texture_position),
 					use_texture
 				);
+				/*
+				if (color.w < 1e-6) {
+					discard; // Not used so can have alpha channel blending instead.
+				}
+				*/
 			}
 		`;
 		/// The position of the vertex buffer.
@@ -278,6 +283,8 @@ namespace ExampleProject {
 			ctx.clearDepth(1.0); // Clearing the display will set the depth buffer to a uniform 1.0.
 			ctx.enable(ctx.DEPTH_TEST); // Do hide geometry using the depth buffer.
 			ctx.depthFunc(ctx.LEQUAL); // Geometry with a lower depth value will be drawn "on top".
+			ctx.enable(ctx.BLEND); // Let blending handle the alpha channel.
+			ctx.blendFunc(ctx.SRC_ALPHA, ctx.ONE_MINUS_SRC_ALPHA);
 
 			// Always just use texture 0. I only need one texture per render (so far).
 			ctx.activeTexture(ctx.TEXTURE0);
