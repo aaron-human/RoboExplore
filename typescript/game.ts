@@ -39,6 +39,14 @@ namespace ExampleProject {
 			}.bind(this));
 		}
 
+		/// Checks if this machine is little-endian.
+		private _isLittleEndian() : boolean {
+			const value = new Uint16Array([1]);
+			const result = (1 === (new Uint8Array(value.buffer))[0]);
+			console.log(`Is browser little-endian? ${result}`);
+			return result;
+		}
+
 		/// Starts running the game now that the WASM has been loaded in.
 		private _start() {
 			console.log("Starting game...");
@@ -46,7 +54,7 @@ namespace ExampleProject {
 			this._display = new Display();
 			this._input = new Input(this._display.canvas);
 
-			wasm_bindgen.setup();
+			wasm_bindgen.setup(this._isLittleEndian());
 
 			// Must do this AFTER the above setup() function is run (as it causes the on_resize to be called).
 			// Must also be set after this._display is setup.
@@ -87,7 +95,7 @@ namespace ExampleProject {
 		}
 
 		/// Marks a draw buffer's ID as used up.
-		public deleteDrawBuffer(id : number) {
+		public deleteDrawBuffer(id : number) : boolean {
 			return this._display.deleteBuffer(id);
 		}
 
@@ -107,8 +115,28 @@ namespace ExampleProject {
 		}
 
 		/// Sets whether a display buffer is visible.
-		public setDisplayBufferVisibility(id : number, visible : boolean) {
-			this._display.setDisplayBufferVisibility(id, visible);
+		public setDisplayBufferVisibility(id : number, visible : boolean) : boolean {
+			return this._display.setBufferVisibility(id, visible);
+		}
+
+		/// Creates a texture for the Display and returns it's new ID.
+		public createDrawTexture() : number {
+			return this._display.createTexture();
+		}
+
+		/// Deletes Display texture and returns if the delete worked.
+		public deleteDrawTexture(id : number) : boolean {
+			return this._display.deleteTexture(id);
+		}
+
+		/// Starts downloading an image from a URL so can store it in the given Display texture. Returns if this started without issue.
+		public setDrawTextureFromURL(id : number, url : string) : boolean {
+			return this._display.setTextureWithURL(id, url);
+		}
+
+		/// Links a Display buffer to a given texture.
+		public setDrawBufferTexture(bufferId : number, textureId : number) : boolean {
+			return this._display.setBufferTexture(bufferId, textureId);
 		}
 
 		/// The text management object.

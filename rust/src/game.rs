@@ -2,6 +2,7 @@ use crate::externals::*;
 use crate::geo::vec3::*;
 use crate::color::*;
 use crate::display_buffer::*;
+use crate::display_texture::*;
 use crate::camera::*;
 use crate::mouse::*;
 use crate::keyboard::*;
@@ -35,6 +36,9 @@ pub struct Game {
 	right_click_tracker : ClickTracker,
 
 	bullets : Vec<Bullet>,
+
+	texture : DisplayTexture,
+	images : DisplayBuffer,
 }
 
 const PLAYER_RADIUS : f32 = 16.0;
@@ -177,6 +181,17 @@ impl Game {
 			"Hit the arrow keys or WASD to move around.<br>Click to show mouse button tracking.",
 		);
 
+		let mut images_buffer = DisplayBuffer::new(DisplayBufferType::IMAGES);
+		let mut images_texture = DisplayTexture::new();
+		images_texture.load_from_url("test.png");
+		images_buffer.set_texture(&images_texture);
+		images_buffer.add_image(
+			&Vec2::new(0.0, 0.0),
+			&Vec2::new(128.0, 128.0),
+			&Vec3::new(0.0, 0.0, 0.0),
+		);
+		images_buffer.update();
+
 		Game {
 			camera: Camera::new(),
 			mouse: Mouse::new(),
@@ -194,6 +209,9 @@ impl Game {
 			right_click_tracker: ClickTracker::new("right"),
 
 			bullets : Vec::new(),
+
+			images: images_buffer,
+			texture: images_texture,
 		}
 	}
 

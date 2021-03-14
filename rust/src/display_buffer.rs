@@ -1,13 +1,16 @@
 use crate::externals::*;
 use crate::geo::vec3::*;
+use crate::geo::vec2::*;
 use crate::geo::mat4::*;
 use crate::color::*;
+use crate::display_texture::DisplayTexture;
 use std::f32::consts::PI;
 
 #[derive(PartialEq)]
 pub enum DisplayBufferType {
-	SOLID,
+	SOLIDS,
 	LINES,
+	IMAGES,
 }
 
 //impl Eq for DisplayBufferType {}
@@ -23,14 +26,14 @@ pub struct DisplayBuffer {
 }
 
 
-
 impl DisplayBuffer {
 	pub fn new(type_ : DisplayBufferType) -> DisplayBuffer {
 		DisplayBuffer {
 			id : createDrawBuffer(
 				match type_ {
-					DisplayBufferType::SOLID => 0,
+					DisplayBufferType::SOLIDS => 0,
 					DisplayBufferType::LINES => 1,
+					DisplayBufferType::IMAGES => 2,
 				}
 			),
 			vertices : Vec::new(),
@@ -51,15 +54,12 @@ impl DisplayBuffer {
 	}
 
 	/// Stores a vertex.
-	fn store_vertex(&mut self, position : &Vec3, color : &Color) {
+	fn store_vertex(&mut self, position : &Vec3, color : &dyn ColorExportable) {
 		self.vertices.push(position.x);
 		self.vertices.push(position.y);
 		self.vertices.push(position.z);
 
-		self.colors.push(color.red);
-		self.colors.push(color.green);
-		self.colors.push(color.blue);
-		self.colors.push(color.alpha);
+		color.raw_export(&mut self.colors);
 	}
 
 	/// Adds a triangle.
@@ -90,7 +90,7 @@ impl DisplayBuffer {
 
 		let length = points.len() as u16;
 		match self.type_ {
-			DisplayBufferType::SOLID => {
+			DisplayBufferType::SOLIDS => {
 				// Creates a triangle fan centered around the first point.
 				for index in 2..length {
 					self.indices.push(start + 0);
@@ -107,6 +107,7 @@ impl DisplayBuffer {
 				self.indices.push(start + length - 1);
 				self.indices.push(start + 0);
 			},
+			DisplayBufferType::IMAGES => panic!("DisplayBuffers of type IMAGES cannot use add_polygon()"),
 		}
 
 		self.buffers_dirty = true;
@@ -132,8 +133,8 @@ impl DisplayBuffer {
 	/// Adds a series of lines.
 	/// Panics if this is called on a SOLID type.
 	pub fn add_lines(&mut self, points : Vec<Vec3>, color : &Color) {
-		if DisplayBufferType::SOLID == self.type_ {
-			panic!("Can't call add_lines() on a SOLID type DisplayBuffer!");
+		if DisplayBufferType::LINES != self.type_ {
+			panic!("Can only call add_lines() on a LINES type DisplayBuffer!");
 		}
 
 		let start_index : u16 = (self.vertices.len() / 3) as u16;
@@ -148,13 +149,13 @@ impl DisplayBuffer {
 
 	/// Makes sure the buffer is shown, and immediately update()s.
 	pub fn show(&mut self) {
-		setDisplayBufferVisibility(self.id, true);
+		assert!(setDisplayBufferVisibility(self.id, true), "Couldn't set visibiltiy of display buffer {}", self.id);
 		self.update();
 	}
 
 	/// Makes sure the buffer is hidden, and immediately update()s.
 	pub fn hide(&mut self) {
-		setDisplayBufferVisibility(self.id, false);
+		assert!(setDisplayBufferVisibility(self.id, false), "Couldn't set visibiltiy of display buffer {}", self.id);
 		self.update();
 	}
 
@@ -166,6 +167,51 @@ impl DisplayBuffer {
 		self.buffers_dirty = false;
 		setDisplayBufferTransform(self.id, self.transform.export());
 	}
+
+	pub fn add_image(&mut self, source_position : &Vec2, size : &Vec2, destination_position : &Vec3) {
+		if DisplayBufferType::IMAGES != self.type_ {
+			panic!("Can only call add_image() on a IMAGES type DisplayBuffer!");
+		}
+
+		let start_index : u16 = (self.vertices.len() / 3) as u16;
+		let mut texture_position = TexturePositionAsColor::new(
+			source_position.x as u16,
+			source_position.y as u16,
+		);
+		let mut position = destination_position.clone();
+		self.store_vertex(&position, &texture_position);
+		position.x         += size.x;
+		texture_position.x += size.x as u16;
+		self.store_vertex(&position, &texture_position);
+		position.y         += size.y;
+		texture_position.y += size.y as u16;
+		self.store_vertex(&position, &texture_position);
+		position.x         -= size.x;
+		texture_position.x -= size.x as u16;
+		self.store_vertex(&position, &texture_position);
+
+		self.indices.push(start_index + 0);
+		self.indices.push(start_index + 1);
+		self.indices.push(start_index + 2);
+
+		self.indices.push(start_index + 0);
+		self.indices.push(start_index + 2);
+		self.indices.push(start_index + 3);
+
+		self.buffers_dirty = true;
+	}
+
+	/// Sets the associated texture.
+	///
+	/// Since this will happen infrequently, it's done immediately rather than being put off until the next update() call.
+	pub fn set_texture(&mut self, texture : &DisplayTexture) { // TODO: Could store this as an Rc<RefCell<DisplayTexture>> so the texture would be guaranteed to be kept until all associated buffers are deleted?
+		if DisplayBufferType::IMAGES != self.type_ {
+			panic!("Can only call set_texture() on a IMAGES type DisplayBuffer!");
+		}
+
+		let texture_id = texture.get_id();
+		assert!(setDrawBufferTexture(self.id, texture_id), "Couldn't set display buffer {} to use texture {}", self.id, texture_id);
+	}
 }
 
 impl Drop for DisplayBuffer {
@@ -173,6 +219,6 @@ impl Drop for DisplayBuffer {
 	/// The TypeScript side of things will re-use it later.
 	/// Using TypeScript for that to keep the DisplayBuffer::new() calls simple.
 	fn drop(&mut self) {
-		deleteDrawBuffer(self.id);
+		assert!(deleteDrawBuffer(self.id), "Couldn't delete draw buffer {}", self.id);
 	}
 }

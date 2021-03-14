@@ -1,8 +1,9 @@
 namespace ExampleProject {
 	/// The rendering types for display buffers.
 	export enum DisplayBufferType {
-		SOLID = 0,
-		LINES = 1,
+		SOLIDS = 0, // for filled shapes (composed of triangles).
+		LINES = 1, // for lines (composed of individual lines)
+		IMAGES = 2, // for images (composed of triangles).
 	}
 
 	/**
@@ -12,8 +13,10 @@ namespace ExampleProject {
 	class _DisplayBuffer {
 		/// The vertex buffer.
 		public readonly vertices : WebGLBuffer;
-		/// The vertex color buffer.
+		/// The vertex color buffer for SOLID and LINES buffers. Stores texture coordinates in IMAGE buffers.
 		public readonly colors : WebGLBuffer;
+		/// The texture to use.
+		public texture : number = null;
 		/// The index buffer.
 		public readonly indices : WebGLBuffer;
 		/// The number of values in the indices buffer.
@@ -22,6 +25,8 @@ namespace ExampleProject {
 		public transform : Float32Array;
 		/// The rendering type used by WebGL.
 		private _glType : number;
+		/// Whether to use the texture.
+		private _useTexture : boolean;
 		/// Whether the buffer should be drawn.
 		public visible : boolean = true;
 
@@ -42,14 +47,81 @@ namespace ExampleProject {
 		/// Sets the DisplayBufferType. Doesn't do anything else, as this isn't the part of the system that handles updating buffer internals.
 		public setType(context : WebGL2RenderingContext, type : DisplayBufferType) {
 			switch (type) {
-				case DisplayBufferType.SOLID: this._glType = context.TRIANGLES; break;
-				case DisplayBufferType.LINES: this._glType = context.LINES; break;
+				case DisplayBufferType.SOLIDS:
+					this._glType = context.TRIANGLES;
+					this._useTexture = false;
+					break;
+				case DisplayBufferType.LINES:
+					this._glType = context.LINES;
+					this._useTexture = false;
+					break;
+				case DisplayBufferType.IMAGES:
+					this._glType = context.TRIANGLES;
+					this._useTexture = true;
+					break;
 			}
 		}
 
 		/// The WebGL type.
 		get glType() : number {
 			return this._glType;
+		}
+
+		/// Whether to use the linked texture.
+		get useTexture() : boolean {
+			return this._useTexture;
+		}
+	}
+
+	/**
+	 * A class for WebGL textures.
+	 */
+	export class _DisplayTexture {
+		/// The WebGL texture.
+		public readonly texture : WebGLTexture;
+
+		/// The width in pixels.
+		public width : number = 1;
+		/// The height in pixels.
+		public height : number = 1;
+
+		/// Creates a one pixel red texture.
+		constructor(context : WebGL2RenderingContext) {
+			this.texture = context.createTexture();
+			context.bindTexture(context.TEXTURE_2D, this.texture);
+			const data = new Uint8Array([255, 0, 0, 255]);
+			context.texImage2D(
+				context.TEXTURE_2D,
+				0, // No mipmaps
+				context.RGBA, // Store RGBA in WebGL.
+				1, 1, // Width x height
+				0, // border?
+				context.RGBA, // The passed in data is RGBA too.
+				context.UNSIGNED_BYTE, // Each passed in component channel is one unsigned byte.
+				data, // The single pixel of data.
+			);
+
+			// Values outside of [0.0, 1.0] clamps down to those edge values.
+			context.texParameteri(context.TEXTURE_2D, context.TEXTURE_WRAP_S, context.CLAMP_TO_EDGE);
+			context.texParameteri(context.TEXTURE_2D, context.TEXTURE_WRAP_T, context.CLAMP_TO_EDGE);
+			// Going for a pixel-art style so no interpolation.
+			context.texParameteri(context.TEXTURE_2D, context.TEXTURE_MAG_FILTER, context.NEAREST);
+			context.texParameteri(context.TEXTURE_2D, context.TEXTURE_MIN_FILTER, context.NEAREST);
+		}
+
+		/// Updates the texture to an image.
+		public setImage(context : WebGL2RenderingContext, image : HTMLImageElement) {
+			context.bindTexture(context.TEXTURE_2D, this.texture);
+			context.texImage2D(
+				context.TEXTURE_2D,
+				0, // No mipmaps
+				context.RGBA, // Store RGBA in WebGL.
+				context.RGBA, // The passed in data is RGBA too.
+				context.UNSIGNED_BYTE, // Each passed in component channel is one unsigned byte.
+				image,
+			);
+			this.width = image.naturalWidth;
+			this.height = image.naturalHeight;
 		}
 	}
 
@@ -77,10 +149,10 @@ namespace ExampleProject {
 			in vec3 position;
 			in vec4 color;
 
-			out vec4 color_interpolation;
+			out vec4 color_source;
 
 			void main() {
-				color_interpolation = color / 255.0;
+				color_source = color;
 				gl_Position = perspective * transform * vec4(position, 1.0); // NOTE: GLSL normalizes based on the w term!
 			}
 		`;
@@ -89,12 +161,22 @@ namespace ExampleProject {
 			#version 300 es
 			precision highp float;
 
-			in vec4 color_interpolation;
+			uniform float use_texture;
+			uniform sampler2D texture_sampler;
+			uniform vec2 texture_size;
+
+			in vec4 color_source;
 
 			out vec4 color;
 
 			void main() {
-				color = color_interpolation;
+				vec2 texture_position = color_source.xy / texture_size;
+				texture_position.y = 1.0 - texture_position.y; // WebGL does texture position in cartesian coords.
+				color = mix(
+					color_source / 255.0,
+					texture(texture_sampler, texture_position),
+					use_texture
+				);
 			}
 		`;
 		/// The position of the vertex buffer.
@@ -102,11 +184,20 @@ namespace ExampleProject {
 		/// The vertex color position buffer.
 		private _colorBufferPosition : number;
 		/// The position of the transform matrix.
-		private _transformPosition : WebGLUniformLocation;
+		private readonly _transformPosition : WebGLUniformLocation;
 		/// The position of the perspective matrix.
-		private _perspectivePosition : WebGLUniformLocation;
+		private readonly _perspectivePosition : WebGLUniformLocation;
+		/// The position of the 'use_texture' numerical switch.
+		private readonly _useTexturePosition : WebGLUniformLocation;
+		/// The position of the texture sampler.
+		private readonly _texturePosition : WebGLUniformLocation;
+		/// The size of the texture.
+		private readonly _textureSizePosition : WebGLUniformLocation;
 
-		/// The next ID to give a new DisplayBuffer.
+		/// A default texture to use.
+		private readonly _defaultTexture : _DisplayTexture;
+
+		/// The next ID to give a new _DisplayBuffer.
 		private _nextBufferID = 1;
 		/// All of the buffers mapped from their ids. Deleted buffers will be removed.
 		private readonly _buffers : Map<number,_DisplayBuffer> = new Map();
@@ -114,6 +205,11 @@ namespace ExampleProject {
 		private readonly _deleted : _DisplayBuffer[] = [];
 		/// All of the buffers to draw, in the order they should be drawn.
 		private readonly _drawOrder : _DisplayBuffer[] = [];
+
+		/// The next ID to give a new _DisplayTexture.
+		private _nextTextureID = 1;
+		/// All of the textures mapped from their ids. Deleted textures will be removed.
+		private readonly _textures : Map<number, _DisplayTexture> = new Map();
 
 		/// A function to be called whenever the canvas resizes.
 		private _resizeCallback : DisplayResizeCallback = null;
@@ -165,6 +261,9 @@ namespace ExampleProject {
 			this._colorBufferPosition = ctx.getAttribLocation(program, "color");
 			this._transformPosition = ctx.getUniformLocation(program, "transform");
 			this._perspectivePosition = ctx.getUniformLocation(program, "perspective");
+			this._useTexturePosition = ctx.getUniformLocation(program, "use_texture");
+			this._texturePosition = ctx.getUniformLocation(program, "texture_sampler");
+			this._textureSizePosition = ctx.getUniformLocation(program, "texture_size");
 
 			/// Always start with a unit perspective.
 			this.perspectiveTransform = new Float32Array([
@@ -179,6 +278,11 @@ namespace ExampleProject {
 			ctx.clearDepth(1.0); // Clearing the display will set the depth buffer to a uniform 1.0.
 			ctx.enable(ctx.DEPTH_TEST); // Do hide geometry using the depth buffer.
 			ctx.depthFunc(ctx.LEQUAL); // Geometry with a lower depth value will be drawn "on top".
+
+			// Always just use texture 0. I only need one texture per render (so far).
+			ctx.activeTexture(ctx.TEXTURE0);
+			ctx.uniform1i(this._texturePosition, 0);
+			this._defaultTexture = new _DisplayTexture(ctx);
 		}
 
 		/// The canvas that the Display is using.
@@ -226,23 +330,34 @@ namespace ExampleProject {
 		}
 
 		/// Removes a draw buffer from use. It will eventually be "recycled" by a createBufffer() call later.
-		public deleteBuffer(id : number) {
+		public deleteBuffer(id : number) : boolean {
 			if (!this._buffers.has(id)) { return false; }
 			const buffer = this._buffers.get(id);
 			this._buffers.delete(id);
 			this._drawOrder.splice(this._drawOrder.indexOf(buffer), 1);
 			this._deleted.push(buffer);
+			return true;
 		}
 
 		/// Sets the contents of a display buffer.
-		public setBuffer(id : number, vertices : Float32Array, colors : Uint8Array, indices : Uint16Array) : boolean {
+		public setBuffer(id : number, vertices : Float32Array, colorsSource : Uint8Array, indices : Uint16Array) : boolean {
 			if (!this._buffers.has(id)) { return false; }
 			const buffer = this._buffers.get(id);
 			const ctx = this._context;
 			ctx.bindBuffer(ctx.ARRAY_BUFFER, buffer.vertices);
 			ctx.bufferData(ctx.ARRAY_BUFFER, vertices, ctx.STATIC_DRAW); // Maybe make this "dynamic draw" someday?
 			ctx.bindBuffer(ctx.ARRAY_BUFFER, buffer.colors);
-			ctx.bufferData(ctx.ARRAY_BUFFER, colors, ctx.STATIC_DRAW); // Maybe make this "dynamic draw" someday?
+			let colors : Uint8Array|Uint16Array = colorsSource;
+			if (buffer.useTexture) {
+				colors = new Uint16Array(colorsSource.buffer);
+				/*colors = new Uint16Array([
+					0.0, 0.0,
+					128.0, 0.0,
+					128.0, 1.0,
+					0.0, 1.0,
+				]);*/
+			}
+			ctx.bufferData(ctx.ARRAY_BUFFER, colors.buffer, ctx.STATIC_DRAW); // Maybe make this "dynamic draw" someday?
 			ctx.bindBuffer(ctx.ELEMENT_ARRAY_BUFFER, buffer.indices);
 			ctx.bufferData(ctx.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), ctx.STATIC_DRAW); // Maybe make this "dynamic draw" someday?
 			buffer.count = indices.length;
@@ -258,9 +373,11 @@ namespace ExampleProject {
 		}
 
 		/// Sets whether a display buffer is visible.
-		public setDisplayBufferVisibility(id : number, visible : boolean) {
+		public setBufferVisibility(id : number, visible : boolean) : boolean {
+			if (!this._buffers.has(id)) { return false; }
 			const buffer = this._buffers.get(id);
 			buffer.visible = visible;
+			return true;
 		}
 
 		/// The overall perspective transform.
@@ -270,6 +387,49 @@ namespace ExampleProject {
 				false,
 				matrix,
 			);
+		}
+
+		/// Creates a texture and returns its handle.
+		///
+		/// Note that this doesn't require a specific URL source to leave room in case textures need to be generated procedurally in the future.
+		public createTexture() : number {
+			const id = this._nextTextureID;
+			this._nextTextureID += 1;
+			this._textures.set(id, new _DisplayTexture(this._context));
+			return id;
+		}
+
+		/// Deletes a texture.
+		public deleteTexture(id : number) : boolean {
+			if (!this._textures.has(id)) { return false; }
+			const texture = this._textures.get(id);
+			this._textures.delete(id);
+			this._context.deleteTexture(texture.texture);
+			return true;
+		}
+
+		/// Sets a texture to the result of loading a given external image.
+		public setTextureWithURL(id : number, url : string) : boolean {
+			if (!this._textures.has(id)) { return false; }
+			const texture = this._textures.get(id);
+			// TODO? A way to track when specific textures load so can have a nice loading screen.
+			const image = new Image();
+			image.addEventListener("load", function(){
+				texture.setImage(this._context, image);
+				console.log(`Texture ${id} loaded: ${url}`);
+			}.bind(this));
+			console.log(`Starting to loading image into texture ${id}: ${url}`);
+			image.src = url;
+			return true;
+		}
+
+		/// Sets the display buffer's texture.
+		public setBufferTexture(bufferId : number, textureId : number) {
+			if (!this._buffers.has(bufferId)) { return false; }
+			if (!this._textures.has(textureId)) { return false; }
+			const buffer = this._buffers.get(bufferId);
+			buffer.texture = textureId;
+			return true;
 		}
 
 		/// Draws to the canvas.
@@ -295,8 +455,8 @@ namespace ExampleProject {
 				ctx.bindBuffer(ctx.ARRAY_BUFFER, buffer.colors);
 				ctx.vertexAttribPointer(
 					this._colorBufferPosition,
-					4, // There are 4 bytes per vertex (RGBA).
-					ctx.UNSIGNED_BYTE, // Using a Uint8Array() to pass the buffer's data.
+					(buffer.useTexture) ? (2) : (4), // Textures are packed as 2 16-bit values. Colors are 4 8-bit values.
+					(buffer.useTexture) ? (ctx.UNSIGNED_SHORT) : (ctx.UNSIGNED_BYTE), // Using a Uint8Array() or a Uint16Array() to pass the buffer's data.
 					false, // Whether to normalize input values to some specified range. (Not needed here.)
 					0, // Don't skip any consecutive bytes when reading the buffer.
 					0, // Don't start at some byte offset when reading the buffer.
@@ -307,6 +467,22 @@ namespace ExampleProject {
 					this._transformPosition,
 					false,
 					buffer.transform,
+				);
+
+				// Load in the texture information.
+				ctx.uniform1f(
+					this._useTexturePosition,
+					(buffer.useTexture) ? (1.0) : (0.0),
+				)
+				let texture = this._defaultTexture;
+				if (null !== buffer.texture && this._textures.has(buffer.texture)) {
+					texture = this._textures.get(buffer.texture);
+				}
+				ctx.bindTexture(ctx.TEXTURE_2D, texture.texture);
+				ctx.uniform2f(
+					this._textureSizePosition,
+					texture.width,
+					texture.height,
 				);
 
 				ctx.bindBuffer(ctx.ELEMENT_ARRAY_BUFFER, buffer.indices);

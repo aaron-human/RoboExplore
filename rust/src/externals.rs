@@ -6,6 +6,7 @@ pub type ColorMagnitude = u8;
 pub type DrawBufferID = i32;
 pub type DrawCoord = f32;
 pub type DrawIndex = u16;
+pub type DrawTextureID = i32;
 pub type DrawTextID = i32;
 
 #[wasm_bindgen]
@@ -21,7 +22,7 @@ extern {
 	pub fn createDrawBuffer(type_ : i32) -> DrawBufferID;
 
 	#[wasm_bindgen(js_namespace=GAME, js_name=deleteDrawBuffer)]
-	pub fn deleteDrawBuffer(id : DrawBufferID);
+	pub fn deleteDrawBuffer(id : DrawBufferID) -> bool;
 
 	#[wasm_bindgen(js_namespace=GAME, js_name=setDisplayBuffer)]
 	fn _setDisplayBuffer(id : DrawBufferID, vertices : Vec<DrawCoord>, colors : Vec<ColorMagnitude>, indices : Vec<DrawIndex>) -> bool;
@@ -33,7 +34,20 @@ extern {
 	pub fn setDisplayTransform(matrix : Vec<DrawCoord>);
 
 	#[wasm_bindgen(js_namespace=GAME, js_name=setDisplayBufferVisibility)]
-	pub fn setDisplayBufferVisibility(id : DrawBufferID, visibility : bool);
+	pub fn setDisplayBufferVisibility(id : DrawBufferID, visibility : bool) -> bool;
+
+	#[wasm_bindgen(js_namespace=GAME, js_name=createDrawTexture)]
+	pub fn createDrawTexture() -> DrawTextureID;
+
+	#[wasm_bindgen(js_namespace=GAME, js_name=deleteDrawTexture)]
+	pub fn deleteDrawTexture(id : DrawTextureID) -> bool;
+
+	#[wasm_bindgen(js_namespace=GAME, js_name=setDrawTextureFromURL)]
+	pub fn setDrawTextureFromURL(id : DrawTextureID, url : &str) -> bool;
+
+	#[wasm_bindgen(js_namespace=GAME, js_name=setDrawBufferTexture)]
+	pub fn setDrawBufferTexture(bufferId : DrawBufferID, textureId : DrawTextureID) -> bool;
+
 
 	#[wasm_bindgen(js_namespace=GAME, js_name="text.addTextPoint")]
 	pub fn createTextPoint(x : i32, y : i32, horizontal : f32, vertical : f32, width : &str, height : &str, color : &str, alignment : &str, text : &str) -> DrawTextID;

@@ -15,7 +15,7 @@ pub struct Bullet {
 impl Bullet {
 	/// Creates a new bullet.
 	pub fn new(position : &Vec2, radius : f32, velocity : &Vec2) -> Bullet {
-		let mut draw = DisplayBuffer::new(DisplayBufferType::SOLID);
+		let mut draw = DisplayBuffer::new(DisplayBufferType::SOLIDS);
 		draw.add_circle(Vec3::zero(), radius, 7, &Color::new(255, 0, 0, 255));
 		draw.transform.translate_before(&Vec3::new(position.x, position.y, 0.0));
 		Bullet{

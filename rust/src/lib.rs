@@ -1,10 +1,21 @@
 use wasm_bindgen::prelude::*;
 
+/// Whether the browser is little-endian
+static mut BROWSER_IS_LITTLE_ENDIAN : bool = false;
+
+/// Check if the browser is little-endian.
+pub fn is_browser_little_endian() -> bool {
+	unsafe {
+		return BROWSER_IS_LITTLE_ENDIAN;
+	}
+}
+
 // The below modules were made public just so Rust would stop complaining about dead code.
 // Conceptually much of the below is basically a library, but it's only used by the `game.ts` file (which is an example, so it doesn't use everything).
 pub mod geo;
 mod externals;
 mod color;
+pub mod display_texture;
 pub mod display_buffer;
 mod camera;
 pub mod mouse;
@@ -24,9 +35,10 @@ static mut GAME : *mut Game = ptr::null_mut();
 /// Sets up the whole game system.
 /// Must be run before anything else!
 #[wasm_bindgen]
-pub fn setup() {
+pub fn setup(is_little_endian : bool) {
 	let instance = Box::new(Game::new());
 	unsafe {
+		BROWSER_IS_LITTLE_ENDIAN = is_little_endian;
 		GAME = Box::into_raw(instance);
 	}
 }
