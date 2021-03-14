@@ -347,23 +347,13 @@ namespace ExampleProject {
 		}
 
 		/// Sets the contents of a display buffer.
-		public setBuffer(id : number, vertices : Float32Array, colorsSource : Uint8Array, indices : Uint16Array) : boolean {
+		public setBuffer(id : number, vertices : Float32Array, colors : Uint8Array, indices : Uint16Array) : boolean {
 			if (!this._buffers.has(id)) { return false; }
 			const buffer = this._buffers.get(id);
 			const ctx = this._context;
 			ctx.bindBuffer(ctx.ARRAY_BUFFER, buffer.vertices);
 			ctx.bufferData(ctx.ARRAY_BUFFER, vertices, ctx.STATIC_DRAW); // Maybe make this "dynamic draw" someday?
 			ctx.bindBuffer(ctx.ARRAY_BUFFER, buffer.colors);
-			let colors : Uint8Array|Uint16Array = colorsSource;
-			if (buffer.useTexture) {
-				colors = new Uint16Array(colorsSource.buffer);
-				/*colors = new Uint16Array([
-					0.0, 0.0,
-					128.0, 0.0,
-					128.0, 1.0,
-					0.0, 1.0,
-				]);*/
-			}
 			ctx.bufferData(ctx.ARRAY_BUFFER, colors.buffer, ctx.STATIC_DRAW); // Maybe make this "dynamic draw" someday?
 			ctx.bindBuffer(ctx.ELEMENT_ARRAY_BUFFER, buffer.indices);
 			ctx.bufferData(ctx.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), ctx.STATIC_DRAW); // Maybe make this "dynamic draw" someday?
