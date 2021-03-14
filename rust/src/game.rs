@@ -1,5 +1,6 @@
 use crate::externals::*;
 use crate::geo::vec3::*;
+use crate::geo::mat4::*;
 use crate::color::*;
 use crate::display_buffer::*;
 use crate::display_texture::*;
@@ -54,7 +55,8 @@ impl ClickTracker {
 		{
 			let color = Color::new(255, 255, 255, 255);
 			const SIZE : f32 = 25.0;
-			display.add_polygon(
+			let mut editor = display.make_editor();
+			editor.add_polygon(
 				&vec![
 					Vec3::new(0.0, 0.0, 0.0),
 					Vec3::new(SIZE / 2.0, SIZE, 0.0),
@@ -78,7 +80,7 @@ impl ClickTracker {
 	}
 
 	pub fn move_to(&mut self, position : &Vec3) {
-		self.display.transform.make_identity().translate_before(position);
+		self.display.set_transform(Mat4::new().translate_before(position));
 		self.display.show();
 		self.text.set_text_point_position(
 			&Vec2::new(position.x, position.y),
@@ -98,13 +100,14 @@ impl Game {
 		let mut player_draw = DisplayBuffer::new(DisplayBufferType::LINES);
 		{
 			let color = Color::new(128, 128, 255, 255);
-			player_draw.add_circle(
+			let mut editor = player_draw.make_editor();
+			editor.add_circle(
 				Vec3::zero(),
 				PLAYER_RADIUS,
 				25,
 				&color,
 			);
-			player_draw.add_lines(
+			editor.add_lines(
 				vec![
 					Vec3::new(-PLAYER_RADIUS, 0.0, 0.0),
 					Vec3::new( PLAYER_RADIUS, 0.0, 0.0),
@@ -112,7 +115,7 @@ impl Game {
 				&color,
 			);
 
-			player_draw.add_lines(
+			editor.add_lines(
 				vec![
 					Vec3::new(0.0,-PLAYER_RADIUS, 0.0),
 					Vec3::new(0.0, PLAYER_RADIUS, 0.0),
@@ -120,7 +123,6 @@ impl Game {
 				&color,
 			);
 		}
-		player_draw.update();
 
 		let mut background_draw = DisplayBuffer::new(DisplayBufferType::LINES);
 		let mut collision = CollisionSystem::new();
@@ -134,7 +136,8 @@ impl Game {
 				Vec3::new(  50.0, 100.0, 0.0 ),
 				Vec3::new(  50.0, 200.0, 0.0 ),
 			];
-			background_draw.add_polygon(
+			let mut editor = background_draw.make_editor();
+			editor.add_polygon(
 				&outside,
 				&color,
 			);
@@ -152,7 +155,7 @@ impl Game {
 					&Vec2::new(outside[              0].x, outside[              0].y),
 				)
 			));
-			background_draw.add_lines(
+			editor.add_lines(
 				vec![
 					Vec3::new(-100.0, -75.0, 0.0),
 					Vec3::new( -50.0, -25.0, 0.0),
@@ -161,7 +164,7 @@ impl Game {
 			);
 			collision.add_obstacle(CircleObstacle::LineSegment(LineSegment::new(&Vec2::new(-100.0, -75.0), &Vec2::new(-50.0, -25.0))));
 
-			background_draw.add_circle(
+			editor.add_circle(
 				Vec3::new(-25.0, 100.0, 0.0),
 				32.0,
 				16,
@@ -169,7 +172,6 @@ impl Game {
 			);
 			collision.add_obstacle(CircleObstacle::Circle(Circle::new(&Vec2::new(-25.0, 100.0), 32.0)));
 		}
-		background_draw.update();
 
 		let description = DisplayText::new_text_area(
 			0.80,
@@ -185,12 +187,14 @@ impl Game {
 		let mut images_texture = DisplayTexture::new();
 		images_texture.load_from_url("test.png");
 		images_buffer.set_texture(&images_texture);
-		images_buffer.add_image(
-			&Vec2::new(0.0, 0.0),
-			&Vec2::new(128.0, 128.0),
-			&Vec3::new(0.0, 0.0, 0.0),
-		);
-		images_buffer.update();
+		{
+			let mut editor = images_buffer.make_editor();
+			editor.add_image(
+				&Vec2::new(0.0, 0.0),
+				&Vec2::new(128.0, 128.0),
+				&Vec3::new(0.0, 0.0, 0.0),
+			);
+		}
 
 		Game {
 			camera: Camera::new(),
@@ -242,8 +246,7 @@ impl Game {
 			movement.y = new_movement.y;
 
 			self.player_position += movement;
-			self.player.transform.make_identity().translate_before(&self.player_position);
-			self.player.update();
+			self.player.set_transform(Mat4::new().translate_before(&self.player_position));
 		}
 
 		{
@@ -260,23 +263,25 @@ impl Game {
 		if self.mouse.has_changed_since() {
 			let bounds = self.camera.bounds();
 			let position = self.mouse.position();
-			self.mouse_draw.clear();
-			let color = Color::new(255, 255, 255, 255);
-			self.mouse_draw.add_lines(
-				vec![
-					Vec3::new(bounds.x_min(), position.y, 0.0),
-					Vec3::new(bounds.x_max(), position.y, 0.0),
-				],
-				&color,
-			);
-			self.mouse_draw.add_lines(
-				vec![
-					Vec3::new(position.x, bounds.y_min(), 0.0),
-					Vec3::new(position.x, bounds.y_max(), 0.0),
-				],
-				&color,
-			);
-			self.mouse_draw.update();
+			{
+				let mut editor = self.mouse_draw.make_editor();
+				editor.clear();
+				let color = Color::new(255, 255, 255, 255);
+				editor.add_lines(
+					vec![
+						Vec3::new(bounds.x_min(), position.y, 0.0),
+						Vec3::new(bounds.x_max(), position.y, 0.0),
+					],
+					&color,
+				);
+				editor.add_lines(
+					vec![
+						Vec3::new(position.x, bounds.y_min(), 0.0),
+						Vec3::new(position.x, bounds.y_max(), 0.0),
+					],
+					&color,
+				);
+			}
 
 			if self.mouse.is_button_down(MouseButton::MIDDLE) {
 				self.middle_click_tracker.move_to(&self.mouse.position());

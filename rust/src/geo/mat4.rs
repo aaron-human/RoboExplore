@@ -2,6 +2,7 @@ use crate::externals::*;
 use super::vec3::*;
 
 /// A 4x4 transform matrix.
+#[derive(Clone)]
 pub struct Mat4 {
 	data : [DrawCoord; 16], // The matrix layed out NORMALLY (i.e. the transpose of what OpenGL does in memory).
 }

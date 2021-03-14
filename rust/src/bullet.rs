@@ -1,6 +1,7 @@
 use crate::geo::consts::*;
 use crate::geo::vec2::*;
 use crate::geo::vec3::*;
+use crate::geo::mat4::*;
 use crate::geo::circle::*;
 use crate::color::*;
 use crate::geo::collision_system::*;
@@ -16,8 +17,11 @@ impl Bullet {
 	/// Creates a new bullet.
 	pub fn new(position : &Vec2, radius : f32, velocity : &Vec2) -> Bullet {
 		let mut draw = DisplayBuffer::new(DisplayBufferType::SOLIDS);
-		draw.add_circle(Vec3::zero(), radius, 7, &Color::new(255, 0, 0, 255));
-		draw.transform.translate_before(&Vec3::new(position.x, position.y, 0.0));
+		{
+			let mut editor = draw.make_editor();
+			editor.add_circle(Vec3::zero(), radius, 7, &Color::new(255, 0, 0, 255));
+		}
+		draw.set_transform(Mat4::new().translate_before(&Vec3::new(position.x, position.y, 0.0)));
 		Bullet{
 			shape: Circle::new(position, radius),
 			velocity: velocity.clone(),
@@ -34,8 +38,7 @@ impl Bullet {
 			return false;
 		}
 		self.shape.center += new_movement;
-		self.draw.transform.translate_before(&Vec3::new(new_movement.x, new_movement.y, 0.0));
-		self.draw.update();
+		self.draw.set_transform(self.draw.get_transform().translate_before(&Vec3::new(new_movement.x, new_movement.y, 0.0)));
 		true
 	}
 
