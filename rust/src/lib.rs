@@ -18,6 +18,7 @@ mod color;
 pub mod display_texture;
 pub mod display_buffer;
 pub mod tiled;
+pub mod tiled_display;
 mod camera;
 pub mod mouse;
 pub mod keyboard;
@@ -41,9 +42,11 @@ static mut GAME : *mut Game = ptr::null_mut();
 #[wasm_bindgen]
 pub fn setup(is_little_endian : bool) {
 	panic::set_hook(Box::new(console_error_panic_hook::hook));
-	let instance = Box::new(Game::new());
 	unsafe {
 		BROWSER_IS_LITTLE_ENDIAN = is_little_endian;
+	}
+	let instance = Box::new(Game::new());
+	unsafe {
 		GAME = Box::into_raw(instance);
 	}
 }

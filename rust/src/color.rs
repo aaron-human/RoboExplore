@@ -59,9 +59,9 @@ impl ColorExportable for TexturePositionAsColor {
 			x_pieces = self.x.to_be_bytes();
 			y_pieces = self.y.to_be_bytes();
 		}
-		output.push(x_pieces[1]);
 		output.push(x_pieces[0]);
-		output.push(y_pieces[1]);
+		output.push(x_pieces[1]);
 		output.push(y_pieces[0]);
+		output.push(y_pieces[1]);
 	}
 }

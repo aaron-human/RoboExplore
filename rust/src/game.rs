@@ -1,4 +1,5 @@
 use core::cell::Cell;
+use std::ptr;
 
 use crate::externals::*;
 use crate::geo::vec3::*;
@@ -12,6 +13,7 @@ use crate::keyboard::*;
 use crate::display_text::*;
 use crate::bullet::*;
 use crate::tiled::*;
+use crate::tiled_display::*;
 
 use crate::geo::vec2::*;
 use crate::geo::circle::*;
@@ -43,6 +45,8 @@ pub struct Game {
 
 	texture : DisplayTexture,
 	images : DisplayBuffer,
+	texture2 : DisplayTexture,
+	images2 : DisplayBuffer,
 }
 
 const PLAYER_RADIUS : f32 = 16.0;
@@ -92,6 +96,20 @@ impl ClickTracker {
 		);
 		self.text.show();
 	}
+}
+
+/// A horrible hack to quickly get the TiledDisplay working.
+static mut TILED_DISPLAY : *mut TiledDisplay = ptr::null_mut();
+
+pub fn test_do_load(mut file : Cell<TiledFile>) {
+	let display;
+	unsafe {
+		TILED_DISPLAY = Box::into_raw(Box::new(TiledDisplay::new()));
+		display = &mut *TILED_DISPLAY;
+	}
+	log(&format!("Drawing {} layers", file.get_mut().layer_count()));
+	display.load_from(file.get_mut());
+	log("Tiled loading done.");
 }
 
 impl Game {
@@ -188,22 +206,42 @@ impl Game {
 
 		let mut images_buffer = DisplayBuffer::new(DisplayBufferType::IMAGES);
 		let mut images_texture = DisplayTexture::new();
-		images_texture.load_from_url("player.png");
-		images_buffer.set_texture(&images_texture);
+		images_texture.load_from_url("roomTiles.png");
 		{
 			let mut editor = images_buffer.make_editor();
 			editor.add_image(
 				&Vec2::new(0.0, 0.0),
-				&Vec2::new(16.0, 16.0),
-				&Vec3::new(0.0, 0.0, 0.0),
+				&Vec2::new(128.0, 128.0),
+				&Vec3::new(-20.0, 0.0, 0.0),
+			);
+			editor.add_image(
+				&Vec2::new(0.0, 0.0),
+				&Vec2::new(10.0, 10.0),
+				&Vec3::new(-30.0, 5.0, 0.1),
 			);
 		}
+		images_buffer.set_texture(&images_texture);
+		images_buffer.hide();
 
+		let mut images_buffer2 = DisplayBuffer::new(DisplayBufferType::IMAGES);
+		let mut images_texture2 = DisplayTexture::new();
+		images_texture2.load_from_url("player.png");
 		{
-			load_tiled_file("room.json", |mut file : Cell<TiledFile>| {
-				log(&format!("Tiles registered: {}", file.get_mut().tile_count()))
-			});
+			let mut editor = images_buffer2.make_editor();
+			editor.add_image(
+				&Vec2::new(0.0, 0.0),
+				&Vec2::new(128.0, 128.0),
+				&Vec3::new(30.0, 0.0, 0.0),
+			);
+			editor.add_image(
+				&Vec2::new(0.0, 0.0),
+				&Vec2::new(10.0, 10.0),
+				&Vec3::new(50.0, 25.0, 0.1),
+			);
 		}
+		images_buffer2.set_texture(&images_texture2);
+
+		load_tiled_file("room.json",  test_do_load);
 
 		Game {
 			camera: Camera::new(),
@@ -225,6 +263,9 @@ impl Game {
 
 			images: images_buffer,
 			texture: images_texture,
+
+			images2: images_buffer2,
+			texture2: images_texture2,
 		}
 	}
 

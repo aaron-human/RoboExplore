@@ -354,7 +354,7 @@ namespace ExampleProject {
 			ctx.bindBuffer(ctx.ARRAY_BUFFER, buffer.vertices);
 			ctx.bufferData(ctx.ARRAY_BUFFER, vertices, ctx.STATIC_DRAW); // Maybe make this "dynamic draw" someday?
 			ctx.bindBuffer(ctx.ARRAY_BUFFER, buffer.colors);
-			ctx.bufferData(ctx.ARRAY_BUFFER, colors.buffer, ctx.STATIC_DRAW); // Maybe make this "dynamic draw" someday?
+			ctx.bufferData(ctx.ARRAY_BUFFER, colors, ctx.STATIC_DRAW); // Maybe make this "dynamic draw" someday?
 			ctx.bindBuffer(ctx.ELEMENT_ARRAY_BUFFER, buffer.indices);
 			ctx.bufferData(ctx.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), ctx.STATIC_DRAW); // Maybe make this "dynamic draw" someday?
 			buffer.count = indices.length;
@@ -414,6 +414,8 @@ namespace ExampleProject {
 			image.addEventListener("load", function(){
 				texture.setImage(this._context, image);
 				console.log(`Texture ${id} loaded: ${url}`);
+				console.log(`Texture ${id} has size: ${texture.width} x ${texture.height}`);
+				console.log(`Texture ${id}:`, image);
 			}.bind(this));
 			console.log(`Starting to loading image into texture ${id}: ${url}`);
 			image.src = url;
