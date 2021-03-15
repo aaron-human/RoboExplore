@@ -169,6 +169,7 @@ print("▶ Running Rust tests...")
 call_cli(
 	"RUST_BACKTRACE=1 cargo test --color=always",
 	directory=config.RUST_DIRECTORY,
+	max_hang=15.0, # A little higher because need to compile several packages.
 )
 print(f"✓ Rust tests done in {time.time() - start:.3f}")
 

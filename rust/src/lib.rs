@@ -17,6 +17,7 @@ mod externals;
 mod color;
 pub mod display_texture;
 pub mod display_buffer;
+pub mod tiled;
 mod camera;
 pub mod mouse;
 pub mod keyboard;
@@ -25,7 +26,10 @@ mod bullet;
 mod game;
 use crate::game::*;
 
+use console_error_panic_hook;
+
 use std::ptr;
+use std::panic;
 
 /// The game instance.
 /// There's only allowed to be one to make JS calls into Rust/WASM easier.
@@ -36,6 +40,7 @@ static mut GAME : *mut Game = ptr::null_mut();
 /// Must be run before anything else!
 #[wasm_bindgen]
 pub fn setup(is_little_endian : bool) {
+	panic::set_hook(Box::new(console_error_panic_hook::hook));
 	let instance = Box::new(Game::new());
 	unsafe {
 		BROWSER_IS_LITTLE_ENDIAN = is_little_endian;

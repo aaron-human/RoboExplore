@@ -66,6 +66,10 @@ extern {
 
 	#[wasm_bindgen(js_namespace=GAME, js_name="text.setTextVisibility")]
 	pub fn setDisplayTextVisibility(id : DrawTextID, visible : bool);
+
+
+	#[wasm_bindgen(js_namespace=GAME, js_name="startTiledFileLoad")]
+	pub fn startTiledFileLoad(url : &str);
 }
 
 #[allow(non_snake_case)] // To keep with TypeScript's naming conventions, don't mess with this.

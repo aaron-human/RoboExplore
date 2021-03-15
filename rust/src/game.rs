@@ -1,3 +1,5 @@
+use core::cell::Cell;
+
 use crate::externals::*;
 use crate::geo::vec3::*;
 use crate::geo::mat4::*;
@@ -9,6 +11,7 @@ use crate::mouse::*;
 use crate::keyboard::*;
 use crate::display_text::*;
 use crate::bullet::*;
+use crate::tiled::*;
 
 use crate::geo::vec2::*;
 use crate::geo::circle::*;
@@ -185,15 +188,21 @@ impl Game {
 
 		let mut images_buffer = DisplayBuffer::new(DisplayBufferType::IMAGES);
 		let mut images_texture = DisplayTexture::new();
-		images_texture.load_from_url("test.png");
+		images_texture.load_from_url("player.png");
 		images_buffer.set_texture(&images_texture);
 		{
 			let mut editor = images_buffer.make_editor();
 			editor.add_image(
 				&Vec2::new(0.0, 0.0),
-				&Vec2::new(128.0, 128.0),
+				&Vec2::new(16.0, 16.0),
 				&Vec3::new(0.0, 0.0, 0.0),
 			);
+		}
+
+		{
+			load_tiled_file("room.json", |mut file : Cell<TiledFile>| {
+				log(&format!("Tiles registered: {}", file.get_mut().tile_count()))
+			});
 		}
 
 		Game {

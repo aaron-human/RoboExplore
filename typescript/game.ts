@@ -12,6 +12,8 @@ namespace ExampleProject {
 		private _display : Display;
 		/// The object managing keyboard and mouse inputs.
 		private _input : Input;
+		/// Manages loading Tiled files.
+		private readonly _tiled : TiledFileLoader = new TiledFileLoader();
 
 		/// Creates a minimal Game instance.
 		constructor() {
@@ -53,6 +55,12 @@ namespace ExampleProject {
 			// Create the objects ahead of fully setting them up (in case `wasm_bindgen.setup()` needs acces to these).
 			this._display = new Display();
 			this._input = new Input(this._display.canvas);
+
+			// Should do this before the main setup, as there's a high chance that that setup will try to immediately load Tiled assets.
+			this._tiled.setup(
+				wasm_bindgen.tiled_generate_add_tile,
+				wasm_bindgen.tiled_generation_done,
+			);
 
 			wasm_bindgen.setup(this._isLittleEndian());
 
@@ -142,6 +150,10 @@ namespace ExampleProject {
 		/// The text management object.
 		get text() : TextDisplay {
 			return this._display?.text;
+		}
+
+		public startTiledFileLoad(url : string) {
+			this._tiled.startLoading(url);
 		}
 
 		/**
