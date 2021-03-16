@@ -38,7 +38,7 @@ impl TiledDisplay {
 			}
 		}
 
-		for layer in file.get_tile_layers() {
+		for (layer_index, layer) in file.get_tile_layers().iter().enumerate() {
 			let mut buffer = DisplayBuffer::new(DisplayBufferType::IMAGES);
 			let mut tile_url = String::new();
 			{
@@ -46,6 +46,7 @@ impl TiledDisplay {
 				let width = layer.get_width();
 				let height = layer.get_height();
 				let offset = layer.get_offset();
+				let depth = -(layer_index as f32) / 100.0;
 				for y in 0..height {
 					for x in 0..width {
 						let tile = file.get_tile(layer.get_tile_id(x, y));
@@ -56,8 +57,8 @@ impl TiledDisplay {
 						let tile_size = tile.get_size();
 						let position = Vec3::new(
 							offset.x + (x as f32) * tile_size.x,
-							offset.y + ((height - y) as f32) * tile_size.y,
-							0.0,
+							offset.y + ((height - y - 1) as f32) * tile_size.y,
+							depth,
 						);
 						editor.add_image(
 							&tile.get_position(),
