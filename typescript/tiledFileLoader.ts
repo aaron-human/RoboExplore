@@ -15,7 +15,8 @@ namespace ExampleProject {
 	}
 
 	type AddTileFunc = (url : string, imageUrl : string, x : number, y : number, width : number, height : number) => void;
-	type AddTileLayerFunc = (url : string, name : string, xOffset : number, yOffset : number, width : number, height : number, data : Uint32Array) => void;
+	type AddTilePointFunc = (url : string, name : string, x : number, y : number) => void;
+	type AddTileLayerFunc = (url : string, name : string, xOffset : number, yOffset : number, width : number, height : number, pixelWidth : number, pixelHeight : number, data : Uint32Array) => void;
 	type OnDoneFunc = (url : string) => void;
 
 	/**
@@ -23,12 +24,14 @@ namespace ExampleProject {
 	 */
 	export class TiledFileLoader {
 		private _addTile : AddTileFunc = null;
+		private _addPoint : AddTilePointFunc = null;
 		private _addTileLayer : AddTileLayerFunc = null;
 		private _onDone : OnDoneFunc = null;
 
 		/// Stores callbacks useful for loading tile info.
-		public setup(addTile : AddTileFunc, addTileLayer : AddTileLayerFunc, onDone : OnDoneFunc) {
+		public setup(addTile : AddTileFunc, addPoint : AddTilePointFunc, addTileLayer : AddTileLayerFunc, onDone : OnDoneFunc) {
 			this._addTile = addTile;
+			this._addPoint = addPoint;
 			this._addTileLayer = addTileLayer;
 			this._onDone = onDone;
 		}
@@ -72,7 +75,7 @@ namespace ExampleProject {
 						console.error(`Tileset #${tilesetIndex} has no "image" in file ${sourceUrl}`);
 						continue;
 					}
-					const idOffset = tileset["firstgid"];
+					const idOffset : number = tileset["firstgid"];
 					if (undefined === idOffset) {
 						console.error(`Tileset #${tilesetIndex} has no "firstgid" in file ${sourceUrl}`);
 						continue;
@@ -108,28 +111,68 @@ namespace ExampleProject {
 				for (let layerIndex = 0;layerIndex < layers.length;layerIndex += 1) {
 					const layer : any = layers[layerIndex];
 					if ("tilelayer" === layer["type"]) {
-						let name = layer["name"];
+						// Handle the tile layers.
+						let name : string = layer["name"];
 						if (!name) { name = ""; }
-						let xOffset = layer["offsetx"];
+						let xOffset : number = layer["offsetx"];
 						if (undefined === xOffset) { xOffset = 0; }
-						let yOffset = layer["offsety"];
+						let yOffset : number = layer["offsety"];
 						if (undefined === yOffset) { yOffset = 0; }
-						const width = layer["width"];
+						const width : number = layer["width"];
 						if (undefined === width) {
 							console.error(`Layer ${name} (index=${layerIndex}) has no "width" in file ${sourceUrl}`);
 							continue;
 						}
-						const height = layer["height"];
+						const height : number = layer["height"];
 						if (undefined === height) {
 							console.error(`Layer ${name} (index=${layerIndex}) has no "height" in file ${sourceUrl}`);
 							continue;
 						}
-						const data = layer["data"];
+						const data : number[] = layer["data"];
 						if (undefined === data) {
 							console.error(`Layer ${name} (index=${layerIndex}) has no "data" in file ${sourceUrl}`);
 							continue;
 						}
-						this._addTileLayer(sourceUrl, name, xOffset, yOffset, width, height, new Uint32Array(data));
+						// Find the resulting total dimensions.
+						let maxTileWidth = 0;
+						let maxTileHeight = 0;
+						for (let tileId of data) {
+							if (!tileIdToInfo.has(tileId)) { continue; }
+							const info = tileIdToInfo.get(tileId);
+							maxTileWidth  = Math.max(maxTileWidth,  info.width);
+							maxTileHeight = Math.max(maxTileHeight, info.height);
+						}
+						const pixelWidth  = width  * maxTileWidth;
+						const pixelHeight = height * maxTileHeight;
+						// Then store it.
+						this._addTileLayer(sourceUrl, name, xOffset, yOffset, width, height, pixelWidth, pixelHeight, new Uint32Array(data));
+					} else if ("objectgroup" === layer["type"]) {
+						// Handle the geometry layers.
+						// Mostly just extract a few useful bits of information.
+						const objects = layer["objects"];
+						for (let objectIndex = 0;objectIndex < objects.length;objectIndex += 1) {
+							const object = objects[objectIndex];
+							if (true === object["point"]) {
+								const name : string = object["name"];
+								if (undefined === name) {
+									console.error(`Object #${objectIndex} in layer #{layerIndex} has no "name" in file ${sourceUrl}`);
+									continue;
+								}
+								const x : number = object["x"];
+								if (undefined === x) {
+									console.error(`Object #${objectIndex} in layer #{layerIndex} has no "x" in file ${sourceUrl}`);
+									continue;
+								}
+								const y : number = object["y"];
+								if (undefined === y) {
+									console.error(`Object #${objectIndex} in layer #{layerIndex} has no "y" in file ${sourceUrl}`);
+									continue;
+								}
+								this._addPoint(sourceUrl, name, x, y);
+							} else {
+								console.warn(`Object #${objectIndex} in layer #{layerIndex} has an recognized type  in file ${sourceUrl}`);
+							}
+						}
 					} else {
 						console.warn(`Unsure of how to deal with Tiled layer type ${layer["type"]} in file ${sourceUrl}`);
 					}

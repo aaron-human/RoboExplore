@@ -45,6 +45,9 @@ impl TiledDisplay {
 				let height = layer.get_height();
 				let offset = layer.get_offset();
 				let depth = -(layer_index as f32) / 100.0;
+				let mut tile_space = layer.get_size(); // How much space to give the tile. It may not use it all.
+				tile_space.x /= width as f32;
+				tile_space.y /= height as f32;
 				for y in 0..height {
 					for x in 0..width {
 						let tile = file.get_tile(layer.get_tile_id(x, y));
@@ -52,15 +55,14 @@ impl TiledDisplay {
 						if 0 == tile_url.len() && 0 < current_url.len() {
 							tile_url = current_url.to_string();
 						}
-						let tile_size = tile.get_size();
 						let position = Vec3::new(
-							offset.x + (x as f32) * tile_size.x,
-							offset.y + ((height - y - 1) as f32) * tile_size.y,
+							offset.x + (x as f32) * tile_space.x,
+							offset.y + ((height - y - 1) as f32) * tile_space.y,
 							depth,
 						);
 						editor.add_image(
 							&tile.get_position(),
-							&tile_size,
+							&tile.get_size(),
 							&position,
 						);
 					}

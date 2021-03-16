@@ -59,6 +59,7 @@ namespace ExampleProject {
 			// Should do this before the main setup, as there's a high chance that that setup will try to immediately load Tiled assets.
 			this._tiled.setup(
 				wasm_bindgen.tiled_generate_add_tile,
+				wasm_bindgen.tiled_generate_add_point,
 				wasm_bindgen.tiled_generate_add_tile_layer,
 				wasm_bindgen.tiled_generation_done,
 			);

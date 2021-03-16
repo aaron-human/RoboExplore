@@ -231,7 +231,11 @@ impl Game {
 	}
 
 	pub fn handle_tiled_file_loaded(&mut self, _url : &str, mut tiled_file : SharedTiledFile) {
-		self.tiled_display.load_from(&tiled_file.get().unwrap());
+		let file = tiled_file.get().unwrap();
+		log(&format!("Point[0]: {:?}", file.get_points()[0].position));
+		let position = file.get_points()[0].position;
+		self.images.set_transform(Mat4::new().translate_before(&Vec3::new(position.x, position.y, 0.0)));
+		self.tiled_display.load_from(&file);
 	}
 
 	pub fn update(&mut self, elapsed_seconds : f32) {

@@ -20,7 +20,10 @@ pub struct TiledFile {
 	/// All the tile layers.
 	tile_layers : Vec<TiledTileLayer>,
 	/// Important points.
-	points : HashMap<String, Vec2>,
+	pub points : Vec<TiledPoint>,
+	/// The max y value from any piece of the file.
+	/// Used to convert cartesian coordinates to non-cartesian.
+	max_y : f32,
 }
 
 impl TiledFile {
@@ -31,7 +34,35 @@ impl TiledFile {
 			url : "".to_string(),
 			tiles : Vec::new(),
 			tile_layers : Vec::new(),
-			points : HashMap::new(),
+			points : Vec::new(),
+			max_y : 0.0,
+		}
+	}
+
+	/// Flips the y coordinate of all items inside this (converting from Cartesian coordinates to non-Cartesian).
+	fn flip_y(&mut self) {
+		// Find the max Y value so can switch all Cartesian coordinates to non-Cartesian.
+		let mut max_y : f32 = 0.0;
+		for point in &self.points {
+			max_y = max_y.max(point.position.y);
+		}
+		for layer in &self.tile_layers {
+			let mut max_tile_height : f32 = 0.0;
+			for tile_id in &layer.tile_data {
+				max_tile_height = max_tile_height.max(
+					self.get_tile(*tile_id).size.y
+				);
+			}
+			max_y = max_y.max((layer.height as f32) * max_tile_height);
+		}
+		self.max_y = max_y;
+		// Correct all points to be in non-Cartesian coordinates.
+		// Don't flip any of the TiledTile items as they're already flipped by the JavaScript side of things!
+		for layer in &mut self.tile_layers {
+			layer.flip_y(max_y);
+		}
+		for point in &mut self.points {
+			point.flip_y(max_y);
 		}
 	}
 
@@ -61,6 +92,11 @@ impl TiledFile {
 			log(&format!("Have layer {:?}", layer.name));
 		}
 		self.tile_layers.len()
+	}
+
+	/// Gets a ref to the points of interest.
+	pub fn get_points<'a>(&'a self) -> &'a Vec<TiledPoint> {
+		&self.points
 	}
 }
 
@@ -101,11 +137,18 @@ pub struct TiledTileLayer {
 	width : usize,
 	/// The height (in tiles).
 	height : usize,
+	/// The size in pixels.
+	size : Vec2,
 	/// The tile indices (in row-major format).
 	tile_data : Vec<TiledTileId>,
 }
 
 impl TiledTileLayer {
+	/// Flips the y coordinate of all items inside this (converting from Cartesian coordinates to non-Cartesian).
+	fn flip_y(&mut self, max_y : f32) {
+		self.offset.y = max_y - (self.offset.y + self.size.y);
+	}
+
 	/// Gets the name.
 	pub fn get_name<'a>(&'a self) -> &'a str {
 		&self.name
@@ -126,9 +169,29 @@ impl TiledTileLayer {
 		self.height
 	}
 
+	/// Gets the size (in pixels) of the layer.
+	pub fn get_size(&self) -> Vec2 {
+		self.size.clone()
+	}
+
 	/// Gets the ID of the gile at a given location.
 	pub fn get_tile_id(&self, x : usize, y : usize) -> TiledTileId {
 		self.tile_data[x + y * self.width]
+	}
+}
+
+/// A simple structure for storing a named point from a geometry layer.
+pub struct TiledPoint {
+	/// The point's position.
+	pub position : Vec2,
+	/// The point's name.
+	pub name : String,
+}
+
+impl TiledPoint {
+	/// Flips the y coordinate of all items inside this (converting from Cartesian coordinates to non-Cartesian).
+	fn flip_y(&mut self, max_y : f32) {
+		self.position.y = max_y - self.position.y;
 	}
 }
 
@@ -228,6 +291,7 @@ impl TiledGenerator {
 		let completed = self.current.remove(url).unwrap();
 		{
 			let mut file = completed.file.borrow_mut();
+			file.flip_y();
 			file.is_loading = false;
 		}
 		get_game().handle_tiled_file_loaded(url, completed);
@@ -236,7 +300,9 @@ impl TiledGenerator {
 
 // =============== All the functions that JavaScript calls are below. ===============
 
-/// Called to add a tile. The tile's ID is implied by its .
+/// Called to add a tile. The tile's ID is implied by its call order. First call is zero, and they count up from there.
+///
+/// This should only be called by external JavaScript code!
 #[wasm_bindgen]
 pub fn tiled_generate_add_tile(file_url : String, image_url : String, x : u16, y : u16, width : u16, height : u16) {
 	get_tiled_generator().borrow_file(&file_url).tiles.push(TiledTile{
@@ -246,16 +312,36 @@ pub fn tiled_generate_add_tile(file_url : String, image_url : String, x : u16, y
 	});
 }
 
+/// Called to add a point of interest.
+///
+/// This should only be called by external JavaScript code!
 #[wasm_bindgen]
-pub fn tiled_generate_add_tile_layer(file_url : String, name : String, x_offset : f32, y_offset : f32, width : usize, height : usize, data : Vec<TiledTileId>) {
+pub fn tiled_generate_add_point(file_url : String, name : String, x : f32, y : f32) {
+	get_tiled_generator().borrow_file(&file_url).points.push(
+		TiledPoint{
+			name,
+			position: Vec2::new(x, y),
+		}
+	);
+}
+
+/// Generates a tile layer for the given tile file.
+///
+/// This should only be called by external JavaScript code!
+#[wasm_bindgen]
+pub fn tiled_generate_add_tile_layer(file_url : String, name : String, x_offset : f32, y_offset : f32, width : usize, height : usize, pixel_width : usize, pixel_height : usize, data : Vec<TiledTileId>) {
 	get_tiled_generator().borrow_file(&file_url).tile_layers.push(TiledTileLayer{
 		name,
 		offset : Vec2::new(x_offset, y_offset),
 		width, height,
+		size : Vec2::new(pixel_width as f32, pixel_height as f32),
 		tile_data : data,
 	});
 }
 
+/// Signals that loading of a Tiled file is done.
+///
+/// This should only be called by external JavaScript code!
 #[wasm_bindgen]
 pub fn tiled_generation_done(url : &str) {
 	get_tiled_generator().conclude(url);
