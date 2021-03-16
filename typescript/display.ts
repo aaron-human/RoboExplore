@@ -177,11 +177,11 @@ namespace ExampleProject {
 					texture(texture_sampler, texture_position),
 					use_texture
 				);
-				/*
+				// To prevent depth testing from killing transparency, don't set pixels if they're basically transparent.
 				if (color.w < 1e-6) {
-					discard; // Not used so can have alpha channel blending instead.
+					discard;
 				}
-				*/
+
 			}
 		`;
 		/// The position of the vertex buffer.
