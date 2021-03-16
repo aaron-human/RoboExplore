@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 
-use crate::externals::log;
-use crate::geo::vec2::*;
 use crate::geo::vec3::*;
 use crate::display_buffer::*;
 use crate::display_texture::*;

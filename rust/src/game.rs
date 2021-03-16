@@ -1,6 +1,3 @@
-use core::cell::Cell;
-use std::ptr;
-
 use crate::externals::*;
 use crate::geo::vec3::*;
 use crate::geo::mat4::*;
@@ -45,6 +42,9 @@ pub struct Game {
 
 	texture : DisplayTexture,
 	images : DisplayBuffer,
+
+	tiled_file : SharedTiledFile,
+	tiled_display : TiledDisplay,
 }
 
 const PLAYER_RADIUS : f32 = 16.0;
@@ -94,20 +94,6 @@ impl ClickTracker {
 		);
 		self.text.show();
 	}
-}
-
-/// A horrible hack to quickly get the TiledDisplay working.
-static mut TILED_DISPLAY : *mut TiledDisplay = ptr::null_mut();
-
-pub fn test_do_load(mut file : Cell<TiledFile>) { // TODO: Make this less horrific.
-	let display;
-	unsafe {
-		TILED_DISPLAY = Box::into_raw(Box::new(TiledDisplay::new()));
-		display = &mut *TILED_DISPLAY;
-	}
-	log(&format!("Drawing {} layers", file.get_mut().layer_count()));
-	display.load_from(file.get_mut());
-	log("Tiled loading done.");
 }
 
 impl Game {
@@ -215,7 +201,8 @@ impl Game {
 		}
 		images_buffer.set_texture(&images_texture);
 
-		load_tiled_file("room.json", test_do_load);
+		let mut tiled_file = SharedTiledFile::new();
+		assert!(tiled_file.load("room.json").is_ok(), "Couldn't start loading 'room.json'!");
 
 		Game {
 			camera: Camera::new(),
@@ -237,7 +224,14 @@ impl Game {
 
 			images: images_buffer,
 			texture: images_texture,
+
+			tiled_file,
+			tiled_display : TiledDisplay::new(),
 		}
+	}
+
+	pub fn handle_tiled_file_loaded(&mut self, _url : &str, mut tiled_file : SharedTiledFile) {
+		self.tiled_display.load_from(&tiled_file.get().unwrap());
 	}
 
 	pub fn update(&mut self, elapsed_seconds : f32) {

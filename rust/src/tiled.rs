@@ -1,15 +1,20 @@
 use wasm_bindgen::prelude::*;
+use std::rc::Rc;
+use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
-use std::cell::Cell;
 
 use crate::externals::*;
-use crate::static_singletons::get_tiled_generator;
+use crate::static_singletons::{get_tiled_generator, get_game};
 use crate::geo::vec2::*;
 
 pub type TiledTileId = u32;
 
 /// All relevant data in a given TiledFile.
 pub struct TiledFile {
+	/// Whether this file is being loaded.
+	is_loading : bool,
+	/// The URL the data is being loaded from.
+	url : String,
 	/// All the tiles, the tile's ID is its index.
 	tiles : Vec<TiledTile>,
 	/// All the tile layers.
@@ -22,6 +27,8 @@ impl TiledFile {
 	/// Creates a new bullet.
 	pub fn new() -> TiledFile {
 		TiledFile {
+			is_loading : false,
+			url : "".to_string(),
 			tiles : Vec::new(),
 			tile_layers : Vec::new(),
 			points : HashMap::new(),
@@ -125,61 +132,114 @@ impl TiledTileLayer {
 	}
 }
 
-/// The type of fuction to call when a TiledFile is loaded.
-pub type TiledDoneCallback = fn(Cell<TiledFile>);
-
-/// Everything needed to handle calling out to JavaScript to load a Tiled object, and then conclude with a call back into some arbitrary Rust code.
+/// The main way TiledFile objects are loaded in.
 ///
-/// **NEVER create this.** There's a singleton instance already hooked up.
+/// This is basically a Rc<RefCell<TiledFile>>, with a little extra to make it easier to work with.
+#[derive(Clone)]
+pub struct SharedTiledFile {
+	/// The TiledFile instance.
+	file : Rc<RefCell<TiledFile>>,
+}
+
+impl SharedTiledFile {
+	/// Creates an empty instance.
+	pub fn new() -> SharedTiledFile {
+		SharedTiledFile {
+			file : Rc::new(RefCell::new(TiledFile::new())),
+		}
+	}
+
+	/// Gets a mutable reference to the TiledFile instance.
+	///
+	/// Will return `None` if the TiledFile is already in use.
+	pub fn get<'a>(&'a mut self) -> Option<RefMut<'a, TiledFile>> {
+		match self.file.try_borrow_mut() {
+			Ok(reference) => {
+				if !reference.is_loading {
+					Some(reference)
+				} else {
+					None
+				}
+			},
+			Err(_) => None,
+		}
+	}
+
+	/// Loads in data from a given URL.
+	///
+	/// Loading in the same URL using separate TiledFile instances will lead to an error.
+	pub fn load(&mut self, url : &str) -> Result<(), ()> {
+		let mut ok = false;
+		if let Ok(reference) = self.file.try_borrow() {
+			ok = !reference.is_loading;
+		}
+		if ok {
+			get_tiled_generator().start_loading(url, self)
+		} else {
+			Err(())
+		}
+	}
+}
+
+//======================================================================================================================
+// Below is all the stuff for generating TiledFile objects.
+//======================================================================================================================
+
+/// Everything needed to handle calling out to JavaScript to load a Tiled object, and then conclude with a call back
+/// into some arbitrary Rust code.
+///
+/// **NEVER create this.** There's a singleton instance already hooked up in `static_singletons`.
 pub struct TiledGenerator {
-	/// A mapping from requested URLs to their corresponding TiledDoneCallbacks.
-	callbacks : HashMap<String, TiledDoneCallback>,
-	/// The current TiledFile object being loaded.
-	current : Cell<TiledFile>,
+	/// A mapping from tiled file URLS to the SharedTileFile instances currently being loaded.
+	current : HashMap<String, SharedTiledFile>,
 }
 
 impl TiledGenerator {
 	pub fn new() -> TiledGenerator {
 		TiledGenerator {
-			callbacks : HashMap::new(),
-			current : Cell::new(TiledFile::new()),
+			current : HashMap::new(),
 		}
 	}
 
-	/// Adds a callback for the given URL.
-	/// DO NOT setup multiple callbacks for a single URL!
-	/// TODO: Allow multiple callbacks per URL?
-	fn add_callback(&mut self, url : &str, callback : TiledDoneCallback) {
-		let key = url.to_string();
-		assert!(!self.callbacks.contains_key(&key), "Callback for this URL aready setup: {:?}", url);
-		self.callbacks.insert(key, callback);
+	/// Starts loading a given SharedTiledFile.
+	fn start_loading(&mut self, url : &str, shared : &SharedTiledFile) -> Result<(),()> {
+		if self.current.contains_key(url) {
+			return Err(());
+		}
+		// Otherwise good to go.
+		{
+			let mut file = shared.file.borrow_mut();
+			file.is_loading = true;
+			file.url = url.to_string();
+		}
+		self.current.insert(url.to_string(), shared.clone());
+		startTiledFileLoad(url);
+		Ok(())
+	}
+
+	fn borrow_file(&self, url : &str) -> RefMut<'_, TiledFile> {
+		assert!(self.current.contains_key(url), "Attempting to update Tiled file {:?} that is no longer stored in the generator!", url);
+		self.current.get(url).unwrap().file.borrow_mut()
 	}
 
 	/// Concludes a callback for the given URL using the current file.
 	fn conclude(&mut self, url : &str) {
 		log(&format!("Concluding {:?}", url));
-		let key = url.to_string();
-		assert!(self.callbacks.contains_key(&key), "No callback for URL: {:?}", url);
-		let callback = self.callbacks.remove(&key);
-		let other = Cell::new(TiledFile::new());
-		other.swap(&self.current);
-		callback.unwrap()(other);
+		let completed = self.current.remove(url).unwrap();
+		{
+			let mut file = completed.file.borrow_mut();
+			file.is_loading = false;
+		}
+		get_game().handle_tiled_file_loaded(url, completed);
 	}
-}
-
-/// Starts loading a TiledFile from the given URL. Will call the callback with the item when its ready.
-pub fn load_tiled_file(url : &str, callback : TiledDoneCallback) {
-	get_tiled_generator().add_callback(url, callback);
-	startTiledFileLoad(url);
 }
 
 // =============== All the functions that JavaScript calls are below. ===============
 
 /// Called to add a tile. The tile's ID is implied by its .
 #[wasm_bindgen]
-pub fn tiled_generate_add_tile(image_url : String, x : u16, y : u16, width : u16, height : u16) {
-	let file = get_tiled_generator().current.get_mut();
-	file.tiles.push(TiledTile{
+pub fn tiled_generate_add_tile(file_url : String, image_url : String, x : u16, y : u16, width : u16, height : u16) {
+	get_tiled_generator().borrow_file(&file_url).tiles.push(TiledTile{
 		image_url: image_url,
 		position: Vec2::new(x as f32, y as f32),
 		size: Vec2::new(width as f32, height as f32),
@@ -187,9 +247,8 @@ pub fn tiled_generate_add_tile(image_url : String, x : u16, y : u16, width : u16
 }
 
 #[wasm_bindgen]
-pub fn tiled_generate_add_tile_layer(name : String, x_offset : f32, y_offset : f32, width : usize, height : usize, data : Vec<TiledTileId>) {
-	let file = get_tiled_generator().current.get_mut();
-	file.tile_layers.push(TiledTileLayer{
+pub fn tiled_generate_add_tile_layer(file_url : String, name : String, x_offset : f32, y_offset : f32, width : usize, height : usize, data : Vec<TiledTileId>) {
+	get_tiled_generator().borrow_file(&file_url).tile_layers.push(TiledTileLayer{
 		name,
 		offset : Vec2::new(x_offset, y_offset),
 		width, height,

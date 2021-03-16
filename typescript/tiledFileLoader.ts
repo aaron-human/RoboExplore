@@ -14,8 +14,8 @@ namespace ExampleProject {
 		public height : number = 1;
 	}
 
-	type AddTileFunc = (imageUrl : string, x : number, y : number, width : number, height : number) => void;
-	type AddTileLayerFunc = (name : string, xOffset : number, yOffset : number, width : number, height : number, data : Uint32Array) => void;
+	type AddTileFunc = (url : string, imageUrl : string, x : number, y : number, width : number, height : number) => void;
+	type AddTileLayerFunc = (url : string, name : string, xOffset : number, yOffset : number, width : number, height : number, data : Uint32Array) => void;
 	type OnDoneFunc = (url : string) => void;
 
 	/**
@@ -101,7 +101,7 @@ namespace ExampleProject {
 					if (!info) {
 						info = new _PartialTileInfo(); // Resort to the defaults.
 					}
-					this._addTile(info.url, info.x, info.y, info.width, info.height);
+					this._addTile(sourceUrl, info.url, info.x, info.y, info.width, info.height);
 				}
 				// Then add all the layers.
 				const layers : any[] = json["layers"];
@@ -129,7 +129,7 @@ namespace ExampleProject {
 							console.error(`Layer ${name} (index=${layerIndex}) has no "data" in file ${sourceUrl}`);
 							continue;
 						}
-						this._addTileLayer(name, xOffset, yOffset, width, height, new Uint32Array(data));
+						this._addTileLayer(sourceUrl, name, xOffset, yOffset, width, height, new Uint32Array(data));
 					} else {
 						console.warn(`Unsure of how to deal with Tiled layer type ${layer["type"]} in file ${sourceUrl}`);
 					}
