@@ -215,7 +215,7 @@ impl Game {
 		}
 		images_buffer.set_texture(&images_texture);
 
-		load_tiled_file("room.json",  test_do_load);
+		load_tiled_file("room.json", test_do_load);
 
 		Game {
 			camera: Camera::new(),

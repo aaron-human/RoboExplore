@@ -414,8 +414,6 @@ namespace ExampleProject {
 			image.addEventListener("load", function(){
 				texture.setImage(this._context, image);
 				console.log(`Texture ${id} loaded: ${url}`);
-				console.log(`Texture ${id} has size: ${texture.width} x ${texture.height}`);
-				console.log(`Texture ${id}:`, image);
 			}.bind(this));
 			console.log(`Starting to loading image into texture ${id}: ${url}`);
 			image.src = url;

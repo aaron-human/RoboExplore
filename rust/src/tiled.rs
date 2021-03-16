@@ -1,9 +1,9 @@
 use wasm_bindgen::prelude::*;
 use std::collections::HashMap;
 use std::cell::Cell;
-use std::ptr;
 
 use crate::externals::*;
+use crate::static_singletons::get_tiled_generator;
 use crate::geo::vec2::*;
 
 pub type TiledTileId = u32;
@@ -129,7 +129,9 @@ impl TiledTileLayer {
 pub type TiledDoneCallback = fn(Cell<TiledFile>);
 
 /// Everything needed to handle calling out to JavaScript to load a Tiled object, and then conclude with a call back into some arbitrary Rust code.
-struct TiledGenerator {
+///
+/// **NEVER create this.** There's a singleton instance already hooked up.
+pub struct TiledGenerator {
 	/// A mapping from requested URLs to their corresponding TiledDoneCallbacks.
 	callbacks : HashMap<String, TiledDoneCallback>,
 	/// The current TiledFile object being loaded.
@@ -137,7 +139,7 @@ struct TiledGenerator {
 }
 
 impl TiledGenerator {
-	fn new() -> TiledGenerator {
+	pub fn new() -> TiledGenerator {
 		TiledGenerator {
 			callbacks : HashMap::new(),
 			current : Cell::new(TiledFile::new()),
@@ -165,18 +167,9 @@ impl TiledGenerator {
 	}
 }
 
-static mut TILED_FILE_GENERATOR : *mut TiledGenerator = ptr::null_mut();
-
 /// Starts loading a TiledFile from the given URL. Will call the callback with the item when its ready.
 pub fn load_tiled_file(url : &str, callback : TiledDoneCallback) {
-	let generator;
-	unsafe {
-		if TILED_FILE_GENERATOR.is_null() {
-			TILED_FILE_GENERATOR = Box::into_raw(Box::new(TiledGenerator::new()));
-		}
-		generator = &mut *TILED_FILE_GENERATOR;
-	}
-	generator.add_callback(url, callback);
+	get_tiled_generator().add_callback(url, callback);
 	startTiledFileLoad(url);
 }
 
@@ -185,11 +178,7 @@ pub fn load_tiled_file(url : &str, callback : TiledDoneCallback) {
 /// Called to add a tile. The tile's ID is implied by its .
 #[wasm_bindgen]
 pub fn tiled_generate_add_tile(image_url : String, x : u16, y : u16, width : u16, height : u16) {
-	let generator;
-	unsafe {
-		generator = &mut *TILED_FILE_GENERATOR;
-	}
-	let file = generator.current.get_mut();
+	let file = get_tiled_generator().current.get_mut();
 	file.tiles.push(TiledTile{
 		image_url: image_url,
 		position: Vec2::new(x as f32, y as f32),
@@ -199,11 +188,7 @@ pub fn tiled_generate_add_tile(image_url : String, x : u16, y : u16, width : u16
 
 #[wasm_bindgen]
 pub fn tiled_generate_add_tile_layer(name : String, x_offset : f32, y_offset : f32, width : usize, height : usize, data : Vec<TiledTileId>) {
-	let generator;
-	unsafe {
-		generator = &mut *TILED_FILE_GENERATOR;
-	}
-	let file = generator.current.get_mut();
+	let file = get_tiled_generator().current.get_mut();
 	file.tile_layers.push(TiledTileLayer{
 		name,
 		offset : Vec2::new(x_offset, y_offset),
@@ -214,9 +199,5 @@ pub fn tiled_generate_add_tile_layer(name : String, x_offset : f32, y_offset : f
 
 #[wasm_bindgen]
 pub fn tiled_generation_done(url : &str) {
-	let generator;
-	unsafe {
-		generator = &mut *TILED_FILE_GENERATOR;
-	}
-	generator.conclude(url);
+	get_tiled_generator().conclude(url);
 }

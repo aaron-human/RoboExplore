@@ -1,5 +1,5 @@
 use crate::externals::*;
-use crate::is_browser_little_endian;
+use crate::static_singletons::is_browser_little_endian;
 
 pub trait ColorExportable {
 	fn raw_export(&self, output : &mut Vec<ColorMagnitude>);
