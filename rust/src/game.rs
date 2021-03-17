@@ -11,6 +11,7 @@ use crate::display_text::*;
 use crate::bullet::*;
 use crate::tiled::*;
 use crate::tiled_display::*;
+use crate::tiled_geometry::*;
 
 use crate::geo::vec2::*;
 use crate::geo::circle::*;
@@ -45,6 +46,7 @@ pub struct Game {
 
 	tiled_file : SharedTiledFile,
 	tiled_display : TiledDisplay,
+	tiled_geometry : TiledGeometry,
 }
 
 const PLAYER_RADIUS : f32 = 16.0;
@@ -227,6 +229,7 @@ impl Game {
 
 			tiled_file,
 			tiled_display : TiledDisplay::new(),
+			tiled_geometry : TiledGeometry::new(),
 		}
 	}
 
@@ -236,6 +239,7 @@ impl Game {
 		let position = file.get_points()[0].position;
 		self.images.set_transform(Mat4::new().translate_before(&Vec3::new(position.x, position.y, 0.0)));
 		self.tiled_display.load_from(&file);
+		self.tiled_geometry.load_from(&file);
 	}
 
 	pub fn update(&mut self, elapsed_seconds : f32) {

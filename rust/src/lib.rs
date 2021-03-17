@@ -12,6 +12,7 @@ pub mod display_texture;
 pub mod display_buffer;
 pub mod tiled;
 pub mod tiled_display;
+pub mod tiled_geometry;
 mod camera;
 pub mod mouse;
 pub mod keyboard;

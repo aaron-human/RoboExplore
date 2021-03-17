@@ -3,7 +3,7 @@ use super::consts::*;
 use super::vec2::*;
 
 /// A 2D bounding box.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Bounds2 {
 	x_min : f32,
 	x_max : f32,
@@ -47,6 +47,14 @@ impl Bounds2 {
 			ret.y_max = first.y;
 		}
 		ret
+	}
+
+	/// Translates this instance in place.
+	pub fn translate(&mut self, amount : &Vec2) {
+		self.x_min += amount.x;
+		self.y_min += amount.y;
+		self.x_max += amount.x;
+		self.y_max += amount.y;
 	}
 
 	pub fn x_min(&self) -> f32 { self.x_min }
