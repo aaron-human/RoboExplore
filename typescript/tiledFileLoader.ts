@@ -1,5 +1,19 @@
 namespace ExampleProject {
 
+	/// A class for storing collision rectangle info.
+	class _CollisionRect {
+		/// The type.
+		public type : string = "";
+		/// One of the edge x values.
+		public x1 : number = 0;
+		/// One of the edge y values.
+		public y1 : number = 0;
+		/// The other edge x value.
+		public x2 : number = 0;
+		/// The other edge y value.
+		public y2 : number = 0;
+	}
+
 	/// A class for storing partial information about a tile.
 	class _PartialTileInfo {
 		/// The image to get the tile from.
@@ -12,9 +26,12 @@ namespace ExampleProject {
 		public width : number = 1;
 		/// The height.
 		public height : number = 1;
+		/// The collision rectangle info.
+		public collisionRectangles : _CollisionRect[] = [];
 	}
 
 	type AddTileFunc = (url : string, imageUrl : string, x : number, y : number, width : number, height : number) => void;
+	type AddTileCollisionRectangleFunc = (url : string, type : string, x1 : number, y1 : number, x2 : number, y2 : number) => void;
 	type AddTilePointFunc = (url : string, name : string, x : number, y : number) => void;
 	type AddTileLayerFunc = (url : string, name : string, xOffset : number, yOffset : number, width : number, height : number, pixelWidth : number, pixelHeight : number, data : Uint32Array) => void;
 	type OnDoneFunc = (url : string) => void;
@@ -24,13 +41,15 @@ namespace ExampleProject {
 	 */
 	export class TiledFileLoader {
 		private _addTile : AddTileFunc = null;
+		private _addTileCollisionRectangle : AddTileCollisionRectangleFunc = null;
 		private _addPoint : AddTilePointFunc = null;
 		private _addTileLayer : AddTileLayerFunc = null;
 		private _onDone : OnDoneFunc = null;
 
 		/// Stores callbacks useful for loading tile info.
-		public setup(addTile : AddTileFunc, addPoint : AddTilePointFunc, addTileLayer : AddTileLayerFunc, onDone : OnDoneFunc) {
+		public setup(addTile : AddTileFunc, addTileCollisionRectangle : AddTileCollisionRectangleFunc, addPoint : AddTilePointFunc, addTileLayer : AddTileLayerFunc, onDone : OnDoneFunc) {
 			this._addTile = addTile;
+			this._addTileCollisionRectangle = addTileCollisionRectangle;
 			this._addPoint = addPoint;
 			this._addTileLayer = addTileLayer;
 			this._onDone = onDone;
@@ -94,6 +113,29 @@ namespace ExampleProject {
 						tileInfo.y = (tileColumnCount - Math.floor(tileIndex / tileRowCount) - 1) * tileHeight;
 						tileInfo.width = tileWidth;
 						tileInfo.height = tileHeight;
+						// Then get the collision information.
+						const collisionObjects : any[] = tile?.objectgroup?.objects;
+						if (collisionObjects) {
+							for (let collision of collisionObjects) {
+								const type = collision["type"];
+								if (undefined === type) { continue; }
+								const x = collision["x"];
+								if (undefined === x) { continue; }
+								const y = collision["y"];
+								if (undefined === y) { continue; }
+								const width = collision["width"];
+								if (undefined === width) { continue; }
+								const height = collision["height"];
+								if (undefined === height) { continue; }
+								const rectangle = new _CollisionRect();
+								rectangle.type = type;
+								rectangle.x1 = x;
+								rectangle.y1 = tileInfo.height - y;
+								rectangle.x2 = x + width;
+								rectangle.y2 = tileInfo.height - (y + height);
+								tileInfo.collisionRectangles.push(rectangle);
+							}
+						}
 						tileIdToInfo.set(id, tileInfo);
 						maxId = Math.max(maxId, id);
 					}
@@ -105,6 +147,16 @@ namespace ExampleProject {
 						info = new _PartialTileInfo(); // Resort to the defaults.
 					}
 					this._addTile(sourceUrl, info.url, info.x, info.y, info.width, info.height);
+					for (let rectangle of info.collisionRectangles) {
+						this._addTileCollisionRectangle(
+							sourceUrl,
+							rectangle.type,
+							rectangle.x1,
+							rectangle.y1,
+							rectangle.x2,
+							rectangle.y2,
+						);
+					}
 				}
 				// Then add all the layers.
 				const layers : any[] = json["layers"];

@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use crate::externals::*;
 use crate::static_singletons::{get_tiled_generator, get_game};
 use crate::geo::vec2::*;
+use crate::geo::bounds2::Bounds2;
 
 pub type TiledTileId = u32;
 
@@ -108,6 +109,8 @@ pub struct TiledTile {
 	position : Vec2,
 	/// The tile's size in the image file.
 	size : Vec2,
+	/// The collision geometry.
+	collision_rects : Vec<TiledRect>,
 }
 
 impl TiledTile {
@@ -124,6 +127,11 @@ impl TiledTile {
 	/// Gets the size of the tile.
 	pub fn get_size(&self) -> Vec2 {
 		self.size.clone()
+	}
+
+	/// Gets the collision rectangles from this specific tile.
+	pub fn get_collision_rectangles<'a>(&'a self) -> &'a Vec<TiledRect> {
+		&self.collision_rects
 	}
 }
 
@@ -193,6 +201,15 @@ impl TiledPoint {
 	fn flip_y(&mut self, max_y : f32) {
 		self.position.y = max_y - self.position.y;
 	}
+}
+
+
+/// A structure for storing an axis-aligned rectangle from Tiled.
+pub struct TiledRect {
+	/// The type.
+	pub r#type : String,
+	/// The position.
+	pub position : Bounds2,
 }
 
 /// The main way TiledFile objects are loaded in.
@@ -309,7 +326,24 @@ pub fn tiled_generate_add_tile(file_url : String, image_url : String, x : u16, y
 		image_url: image_url,
 		position: Vec2::new(x as f32, y as f32),
 		size: Vec2::new(width as f32, height as f32),
+		collision_rects : Vec::new(),
 	});
+}
+
+/// Called to add a collision rectangle to the latest tile that was added.
+///
+/// This should only be called by external JavaScript code!
+#[wasm_bindgen]
+pub fn tiled_generate_add_tile_collision_rectangle(file_url : String, type_ : String, x1 : f32, y1 : f32, x2 : f32, y2 : f32) {
+	get_tiled_generator().borrow_file(&file_url).tiles.last_mut().unwrap().collision_rects.push(
+		TiledRect{
+			r#type: type_,
+			position: Bounds2::from_points(
+				&Vec2::new(x1, y1),
+				&Vec2::new(x2, y2),
+			),
+		}
+	);
 }
 
 /// Called to add a point of interest.
