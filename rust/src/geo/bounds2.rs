@@ -57,6 +57,25 @@ impl Bounds2 {
 		self.y_max += amount.y;
 	}
 
+	/// Expands to include a given x value.
+	pub fn expand_to_x(&mut self, x : f32) {
+		if x < self.x_min {
+			self.x_min = x;
+		}
+		if x > self.x_max {
+			self.x_max = x;
+		}
+	}
+	/// Expands to include a given y value.
+	pub fn expand_to_y(&mut self, y : f32) {
+		if y < self.y_min {
+			self.y_min = y;
+		}
+		if y > self.y_max {
+			self.y_max = y;
+		}
+	}
+
 	pub fn x_min(&self) -> f32 { self.x_min }
 	pub fn x_max(&self) -> f32 { self.x_max }
 	pub fn y_min(&self) -> f32 { self.y_min }
