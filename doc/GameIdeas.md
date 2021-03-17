@@ -18,7 +18,7 @@
 		* Perhaps these turn out to be the real big-bad of the game?
 * Individualism (human-like) vs collectivism (bees-like). What is sovereignty? The value of having individuals: spying.
 * **Robots might act a lot more like animals than we give them credit for.**
-	* The "robot apocalypse" where all robots immediately unify and destroy humanity seems like it doesn't pay much credence to how much plain game theory decided how animals interact. There are a lot of reasons why animals do what they do. Some of them are restrictions due to the world. Many are just inherent in any system where cooperation isn't always the goal. Inevitably there will always be creatures trying to eek out a living by stealing, or murdering.
+	* The "robot apocalypse" where all robots immediately unify and destroy humanity seems like it doesn't pay much credence to how much plain game theory decided how animals interact. There are a lot of reasons why animals do what they do. Some of them are restrictions due to the world. Many are just inherent in any system where cooperation isn't always the goal. Inevitably there will always be creatures trying to eek out a living by stealing, or murdering. As a counterbalance there will be those seeking consensus. Creatures resort to fighting when communication fails. Humans and robots would seek better forms of governance so long that they had the capacity to question and experiment. Etc.
 ---
 * Lore wise: The creators aren't dead. They just left this place behind. It was made obsolete. Or maybe it was automated to the point where they never needed to visit?
 	* I want to subvert the "everyone is dead" apocalyptic setting a bit here. Instead, they just moved on.
@@ -31,4 +31,5 @@
 * Maybe explore compartmentalization as a **theme**? Some robots just know their specific tasks, and little else.
 * Some locations are completely obsolete (waste management when there's no one pooping). Repurposed?
 ---
+* Perhaps have **several crises** that the world has gone through. And you're just seeing the latest?
 * Maybe the creators aren't human?
