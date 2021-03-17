@@ -17,8 +17,7 @@
 	* Could have some sort of "grey-goo" entity destroying everything.
 		* Perhaps these turn out to be the real big-bad of the game?
 * Individualism (human-like) vs collectiveism (bees-like). What is soverignty? The value of having individuals: spying.
-
-
+---
 * Lore wise: The creators aren't dead. They just left this place behind. It was made obsolete. Or maybe it was automated to the point where they never needed to visit?
 	* I want to subvert the "everyone is dead" apocalyptic setting a bit here. Instead, they just moved on.
 * Also **thematically** link in that none of this was intentional. But systems that can self-sustain, when left on their own for a while eventually manifest strange behavior.
@@ -29,5 +28,5 @@
 	* Or maybe there's some sort of crysis that's threatening the eternal nature of the station.
 * Maybe explore compartmentalization as a **theme**? Some robots just know their specific tasks, and little else.
 * Some locations are completely obsolete (waste management when there's no one pooping). Repurposed?
-
+---
 * Maybe the creators aren't human?
