@@ -12,6 +12,8 @@ use crate::display_buffer::{DisplayBuffer, DisplayBufferType};
 
 /// A place to store geometry for the underlying tile map.
 pub struct TiledGeometry {
+	/// The rectangles that represent "tracks".
+	tracks : Vec<Bounds2>,
 	/// The rectangles to collide with.
 	collision_rects : Vec<Bounds2>,
 	/// A debugging buffer to show all the geometry with.
@@ -21,6 +23,7 @@ pub struct TiledGeometry {
 impl TiledGeometry {
 	pub fn new() -> TiledGeometry {
 		TiledGeometry {
+			tracks : Vec::new(),
 			collision_rects : Vec::new(),
 			debug_buffer : DisplayBuffer::new(DisplayBufferType::LINES),
 		}
@@ -45,9 +48,14 @@ impl TiledGeometry {
 					);
 					for rect in tile.get_collision_rectangles() {
 						if "collision" == rect.r#type {
-							let mut collision = rect.position.clone();
-							collision.translate(&tile_offset);
-							self.collision_rects.push(collision);
+							let mut final_copy = rect.position.clone();
+							final_copy.translate(&tile_offset);
+							self.collision_rects.push(final_copy);
+						}
+						if "track" == rect.r#type {
+							let mut final_copy = rect.position.clone();
+							final_copy.translate(&tile_offset);
+							self.tracks.push(final_copy);
 						}
 					}
 					for property in tile.get_boolean_properties() {
@@ -63,22 +71,40 @@ impl TiledGeometry {
 			}
 		}
 		self.collision_rects = simplify_rects(&mut self.collision_rects);
+		self.tracks = simplify_rects(&mut self.tracks);
 		// For debugging: draw all the rectangles.
 		{
 			let mut editor = self.debug_buffer.make_editor();
 			editor.clear();
-			let color = Color::new(255, 0, 0, 255);
-			let z : f32 = -0.8;
-			for rect in &self.collision_rects {
-				editor.add_polygon(
-					&vec![
-						Vec3::new(rect.x_min(), rect.y_min(), z),
-						Vec3::new(rect.x_max(), rect.y_min(), z),
-						Vec3::new(rect.x_max(), rect.y_max(), z),
-						Vec3::new(rect.x_min(), rect.y_max(), z),
-					],
-					&color,
-				);
+			{
+				let color = Color::new(255, 0, 0, 255);
+				let z : f32 = -0.8;
+				for rect in &self.collision_rects {
+					editor.add_polygon(
+						&vec![
+							Vec3::new(rect.x_min(), rect.y_min(), z),
+							Vec3::new(rect.x_max(), rect.y_min(), z),
+							Vec3::new(rect.x_max(), rect.y_max(), z),
+							Vec3::new(rect.x_min(), rect.y_max(), z),
+						],
+						&color,
+					);
+				}
+			}
+			{
+				let color = Color::new(0, 255, 0, 255);
+				let z : f32 = -0.85;
+				for rect in &self.tracks {
+					editor.add_polygon(
+						&vec![
+							Vec3::new(rect.x_min(), rect.y_min(), z),
+							Vec3::new(rect.x_max(), rect.y_min(), z),
+							Vec3::new(rect.x_max(), rect.y_max(), z),
+							Vec3::new(rect.x_min(), rect.y_max(), z),
+						],
+						&color,
+					);
+				}
 			}
 		}
 	}
