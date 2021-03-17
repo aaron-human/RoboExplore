@@ -7,5 +7,4 @@
 * Upgrades are for more involved sections.
     * ?Or could embrace chaos and have the rewards be fairly randomly scattered?
 * Have enemy factions?
-
-After
+* Backgrounds with paralax. Maybe even show adjacent levels as backgrounds/camera dressing for current level?
