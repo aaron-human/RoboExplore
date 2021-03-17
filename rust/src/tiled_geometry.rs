@@ -42,17 +42,20 @@ impl TiledGeometry {
 						layer_offset.y + ((layer_height - y - 1) as f32) * tile_space.y,
 					);
 					for rect in tile.get_collision_rectangles() {
-						if rect.r#type == "collision" {
+						if "collision" == rect.r#type {
 							let mut collision = rect.position.clone();
 							collision.translate(&tile_offset);
 							self.rects.push(collision);
 						}
 					}
-					if false { // TODO: Check the tile's boolean properties.
-						self.rects.push(Bounds2::from_points(
-							&tile_offset,
-							&(tile_offset + tile.get_size()),
-						));
+					for property in tile.get_boolean_properties() {
+						if "solid" == property.name && property.value {
+							self.rects.push(Bounds2::from_points(
+								&tile_offset,
+								&(tile_offset + tile.get_size()),
+							));
+							break;
+						}
 					}
 				}
 			}

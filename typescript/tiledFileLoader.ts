@@ -14,6 +14,13 @@ namespace ExampleProject {
 		public y2 : number = 0;
 	}
 
+	/// A class for storing a boolean property.
+	class _BooleanProperty {
+		constructor(public name : string, public value : boolean) {
+			//
+		}
+	}
+
 	/// A class for storing partial information about a tile.
 	class _PartialTileInfo {
 		/// The image to get the tile from.
@@ -26,11 +33,14 @@ namespace ExampleProject {
 		public width : number = 1;
 		/// The height.
 		public height : number = 1;
+		/// The properties.
+		public properties : _BooleanProperty[] = []; // TODO: Add more property types.
 		/// The collision rectangle info.
 		public collisionRectangles : _CollisionRect[] = [];
 	}
 
 	type AddTileFunc = (url : string, imageUrl : string, x : number, y : number, width : number, height : number) => void;
+	type AddTileBooleanPropertyFunc = (url : string, name : string, value : boolean) => void;
 	type AddTileCollisionRectangleFunc = (url : string, type : string, x1 : number, y1 : number, x2 : number, y2 : number) => void;
 	type AddTilePointFunc = (url : string, name : string, x : number, y : number) => void;
 	type AddTileLayerFunc = (url : string, name : string, xOffset : number, yOffset : number, width : number, height : number, pixelWidth : number, pixelHeight : number, data : Uint32Array) => void;
@@ -41,14 +51,16 @@ namespace ExampleProject {
 	 */
 	export class TiledFileLoader {
 		private _addTile : AddTileFunc = null;
+		private _addTileBooleanProperty : AddTileBooleanPropertyFunc = null;
 		private _addTileCollisionRectangle : AddTileCollisionRectangleFunc = null;
 		private _addPoint : AddTilePointFunc = null;
 		private _addTileLayer : AddTileLayerFunc = null;
 		private _onDone : OnDoneFunc = null;
 
 		/// Stores callbacks useful for loading tile info.
-		public setup(addTile : AddTileFunc, addTileCollisionRectangle : AddTileCollisionRectangleFunc, addPoint : AddTilePointFunc, addTileLayer : AddTileLayerFunc, onDone : OnDoneFunc) {
+		public setup(addTile : AddTileFunc, addTileBooleanProperty : AddTileBooleanPropertyFunc, addTileCollisionRectangle : AddTileCollisionRectangleFunc, addPoint : AddTilePointFunc, addTileLayer : AddTileLayerFunc, onDone : OnDoneFunc) {
 			this._addTile = addTile;
+			this._addTileBooleanProperty = addTileBooleanProperty;
 			this._addTileCollisionRectangle = addTileCollisionRectangle;
 			this._addPoint = addPoint;
 			this._addTileLayer = addTileLayer;
@@ -113,6 +125,19 @@ namespace ExampleProject {
 						tileInfo.y = (tileColumnCount - Math.floor(tileIndex / tileRowCount) - 1) * tileHeight;
 						tileInfo.width = tileWidth;
 						tileInfo.height = tileHeight;
+						// Add the boolean property information.
+						const properties : any[] = tile["properties"];
+						if (properties) {
+							for (let property of properties) {
+								if ("bool" === property["type"]) {
+									const name = property["name"];
+									if (undefined === name) { continue; }
+									const value = property["value"];
+									if (undefined === value) { continue; }
+									tileInfo.properties.push(new _BooleanProperty(name, value));
+								}
+							}
+						}
 						// Then get the collision information.
 						const collisionObjects : any[] = tile?.objectgroup?.objects;
 						if (collisionObjects) {
@@ -147,6 +172,11 @@ namespace ExampleProject {
 						info = new _PartialTileInfo(); // Resort to the defaults.
 					}
 					this._addTile(sourceUrl, info.url, info.x, info.y, info.width, info.height);
+					for (let property of info.properties) {
+						if (property instanceof _BooleanProperty) {
+							this._addTileBooleanProperty(sourceUrl, property.name, property.value);
+						}
+					}
 					for (let rectangle of info.collisionRectangles) {
 						this._addTileCollisionRectangle(
 							sourceUrl,

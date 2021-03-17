@@ -109,6 +109,8 @@ pub struct TiledTile {
 	position : Vec2,
 	/// The tile's size in the image file.
 	size : Vec2,
+	/// The boolean properties.
+	boolean_properties : Vec<TiledBoolProp>,
 	/// The collision geometry.
 	collision_rects : Vec<TiledRect>,
 }
@@ -127,6 +129,11 @@ impl TiledTile {
 	/// Gets the size of the tile.
 	pub fn get_size(&self) -> Vec2 {
 		self.size.clone()
+	}
+
+	/// Gets the boolean properties from this specific tile.
+	pub fn get_boolean_properties<'a>(&'a self) -> &'a Vec<TiledBoolProp> {
+		&self.boolean_properties
 	}
 
 	/// Gets the collision rectangles from this specific tile.
@@ -210,6 +217,14 @@ pub struct TiledRect {
 	pub r#type : String,
 	/// The position.
 	pub position : Bounds2,
+}
+
+/// A structure for storing boolean properties in Tiled.
+pub struct TiledBoolProp {
+	/// The property's name.
+	pub name : String,
+	/// The property's value.
+	pub value : bool,
 }
 
 /// The main way TiledFile objects are loaded in.
@@ -326,8 +341,22 @@ pub fn tiled_generate_add_tile(file_url : String, image_url : String, x : u16, y
 		image_url: image_url,
 		position: Vec2::new(x as f32, y as f32),
 		size: Vec2::new(width as f32, height as f32),
+		boolean_properties : Vec::new(),
 		collision_rects : Vec::new(),
 	});
+}
+
+/// Called to add a boolean property to the latest tile that was added.
+///
+/// This should only be called by external JavaScript code!
+#[wasm_bindgen]
+pub fn tiled_generate_add_tile_boolean_property(file_url : String, name : String, value : bool) {
+	get_tiled_generator().borrow_file(&file_url).tiles.last_mut().unwrap().boolean_properties.push(
+		TiledBoolProp{
+			name,
+			value,
+		}
+	);
 }
 
 /// Called to add a collision rectangle to the latest tile that was added.
