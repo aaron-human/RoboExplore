@@ -1,3 +1,5 @@
+use generational_arena::Index;
+
 use super::consts::*;
 use super::range::*;
 use super::vec2::*;
@@ -27,6 +29,7 @@ impl<'l> Collider<'l, Line> for Circle {
 			deflected: false, // Assume not deflected until go through that part.
 			position: self.center.clone(),
 			remainder: movement.clone(),
+			source: Index::from_raw_parts(0, 0), // A generic index that will be replaced by the caller.
 		};
 		println!("normal: {:?}", &deflection.normal);
 
@@ -260,6 +263,7 @@ impl<'l> Collider<'l, Vec2> for Circle {
 			deflected: false, // Assume not deflected until go through that part.
 			position,
 			remainder: movement.clone(),
+			source: Index::from_raw_parts(0, 0), // A generic index that will be replaced by the caller.
 		};
 
 		// If not time between 0.0 and 1.0, then no hit happened.
@@ -400,6 +404,7 @@ fn deflect_with_line_segment_middle(circle : &Circle, movement : &Vec2, obstacle
 			deflected: false, // Assume not deflected until go through that part.
 			position: circle.center.clone(),
 			remainder: movement.clone(),
+			source: Index::from_raw_parts(0, 0), // A generic index that will be replaced by the caller.
 		};
 		println!("normal: {:?}", &deflection.normal);
 
@@ -520,11 +525,21 @@ mod test_line_segment_middle_deflect { // Just testing things that are different
 impl<'l> Collider<'l, LineSegment> for Circle {
 	/// Deflects a collider's movement with the given obstacle.
 	fn deflect_with(&self, movement : &Vec2, obstacle : &'l LineSegment) -> Option<Deflection> {
-		Deflection::combine(vec![
-			self.deflect_with(movement, &obstacle.start),
-			deflect_with_line_segment_middle(self, movement, obstacle),
-			self.deflect_with(movement, &obstacle.end),
-		])
+		let mut deflections = Vec::new();
+		if let Some(deflection) = self.deflect_with(movement, &obstacle.start) {
+			deflections.push(deflection);
+		}
+		if let Some(deflection) = deflect_with_line_segment_middle(self, movement, obstacle) {
+			deflections.push(deflection);
+		}
+		if let Some(deflection) = self.deflect_with(movement, &obstacle.end) {
+			deflections.push(deflection);
+		}
+		if let Some(mut total) = TotalDeflection::try_new(deflections) {
+			Some(total.deflections.remove(0))
+		} else {
+			None
+		}
 	}
 }
 

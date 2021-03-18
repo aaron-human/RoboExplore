@@ -29,6 +29,11 @@ impl TiledGeometry {
 		}
 	}
 
+	/// The collision rectangle geometry.
+	pub fn get_collision_rects<'a>(&'a self) -> &'a Vec<Bounds2> {
+		&self.collision_rects
+	}
+
 	/// Loads in all data from a TiledFile instance.
 	pub fn load_from(&mut self, file : &TiledFile) {
 		// First pass: Extract all collision information from the map.

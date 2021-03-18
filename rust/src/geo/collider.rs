@@ -1,3 +1,5 @@
+use generational_arena::Index;
+
 use std::f32::INFINITY;
 
 use super::consts::*;
@@ -7,11 +9,20 @@ use super::vec2::*;
 /// The result of deflecting a collider.
 #[derive(Debug, Clone)]
 pub struct Deflection {
-	pub times : Range, // When in contact with the obstacle. Zero means at start. One means at end.
-	pub normal : Vec2, // The surface normal. Should be pointing away from the surface. Must be unit length.
-	pub deflected : bool, // Whether a deflection occurred. If false, then just passing back that was in contact with some surface.
-	pub position : Vec2, // The position of the collider when the deflection happened.
-	pub remainder : Vec2, // The remaining (deflected) movement.
+	/// When in contact with the obstacle. Zero means at start. One means at end.
+	pub times : Range,
+	/// The surface normal. Should be pointing away from the surface. Must be unit length.
+	pub normal : Vec2,
+	/// Whether a deflection occurred. If false, then just passing back that was in contact with some surface.
+	pub deflected : bool,
+
+	/// The position of the collider when the deflection happened.
+	pub position : Vec2,
+	/// The remaining (deflected) movement.
+	pub remainder : Vec2,
+
+	/// A way to keep track of which piece of collision geometry caused this.
+	pub source : Index,
 }
 
 pub trait Collider<'o, OBSTACLE> {
@@ -56,75 +67,96 @@ impl Deflection {
 			self.remainder += (&self.normal).scale(-coincidence);
 		}
 	}
+}
 
+/// The result of combining one or more Deflection()s together.
+pub struct TotalDeflection {
+	/// The final position of the collider after the collision.
+	pub final_position : Vec2,
+	/// All of the deflections that applied during the collision.
+	/// This includes ones that were in contact but didn't alter the movement.
+	///
+	/// The first is always the one that's considered **the** deflection that occurred.
+	pub deflections : Vec<Deflection>,
+}
+
+impl TotalDeflection {
 	/// Combines multiple Deflections.
 	/// Always yields the nearest. If there are multiple that fit that description, chooses first.
 	/// If more than one unique normal applies at that time, then will try to apply the new ones. This will generally zero any movement toward two unique normals (not 100% sure if there's a better way).
-	pub fn combine(mut items : Vec<Option<Deflection>>) -> Option<Deflection> {
+	pub fn try_new(mut items : Vec<Deflection>) -> Option<TotalDeflection> {
 		// First pass: find the Deflection with the earliest start time.
 		let mut soonest_time : f32 = INFINITY;
 		let mut soonest_index : usize = items.len();
 		for index in 0..items.len() {
-			if let Some(ref new) = items[index] {
-				if !new.deflected {
-					continue;
-				} else {
-					let mut new_time = new.times.min().unwrap();
-					if 0.0 > new_time { new_time = 0.0; }
-					if new_time < soonest_time {
-						soonest_time = new_time;
-						soonest_index = index;
-					}
+			let new = &items[index];
+			if new.deflected {
+				let mut new_time = new.times.min().unwrap();
+				if 0.0 > new_time { new_time = 0.0; }
+				if new_time < soonest_time {
+					soonest_time = new_time;
+					soonest_index = index;
 				}
 			}
 		}
 
+		// If no soonest, then no collision.
 		if soonest_index == items.len() {
 			return None;
 		}
 
-		// Second pass: find all normals that apply to the soonest_time.
+		// Then extract soonest_index, so can easily work on all the rest.
+		let deflection = items.remove(soonest_index);
+
+		// Second pass: remove all deflections that don't "apply" at the soonest_time.
+		// Also setup a list of unqiue normals.
 		let mut normals : Vec<Vec2> = Vec::new();
-		for item in &items {
-			if let Some(ref hit) = item {
-				if hit.times.contains(soonest_time) {
-					println!("Contained!");
-					let new_normal = hit.normal.clone();
-					let mut unique = true;
-					for norm in &normals {
-						if (norm - &new_normal).length() < EPSILON {
-							unique = false;
-							break;
-						}
-					}
-					if unique {
-						normals.push(new_normal);
+		normals.push(deflection.normal.clone());
+		items.retain(|hit| {
+			let keep = hit.times.contains(soonest_time);
+			if keep {
+				let new_normal = hit.normal.clone();
+				let mut unique = true;
+				for norm in &normals {
+					if (norm - &new_normal).length() < EPSILON {
+						unique = false;
+						break;
 					}
 				}
+				if unique {
+					normals.push(new_normal);
+				}
 			}
-		}
+			keep
+		});
+
+		// Always put the soonest_index first.
+		let mut remainder = deflection.remainder.clone();
+		items.insert(0, deflection);
 
 		// Try limiting the remainder vector if there's more than one normal.
 		// Do this mainly by checking if there are normals on the left and right of the remaining movement. That means drop the remaining movement.
 		let mut on_pos : bool = false;
 		let mut on_neg : bool = false;
-		let mut deflection = items.remove(soonest_index).unwrap();
 		for normal in &normals {
 			// Ignore if the normal is in the direction of movement.
 			// But don't ignore if it's perpendicular.
-			if deflection.remainder.dot(normal) > EPSILON { continue; }
+			if remainder.dot(normal) > EPSILON { continue; }
 			// Check which side it is on.
-			if 0.0 > deflection.remainder.ext(normal) {
+			if 0.0 > remainder.ext(normal) {
 				on_pos = true;
 			} else {
 				on_neg = true;
 			}
 			if on_pos && on_neg {
-				(&mut deflection.remainder).scale(0.0);
+				(&mut remainder).scale(0.0);
 				break;
 			}
 		}
-		Some(deflection)
+		Some(TotalDeflection{
+			final_position: items[0].position + remainder,
+			deflections: items,
+		})
 	}
 }
 
@@ -134,31 +166,33 @@ mod test_combine_deflection {
 
 	#[test]
 	fn no_hits() {
-		let result = Deflection::combine(vec![
-			Some(Deflection {
+		let result = TotalDeflection::try_new(vec![
+			Deflection {
 				times: Range::empty(),
 				normal: Vec2::zero(),
 				deflected: false,
 				position:  Vec2::zero(),
 				remainder: Vec2::zero(),
-			}),
-			None,
+				source: Index::from_raw_parts(0, 0),
+			},
 		]);
 		assert!(result.is_none());
 	}
 
 	#[test]
 	fn pass_through() {
-		let result = Deflection::combine(vec![
-			Some(Deflection {
+		let maybe_result = TotalDeflection::try_new(vec![
+			Deflection {
 				times: Range::from_value(0.5),
 				normal: Vec2::new(1.0, 0.0),
 				deflected: true,
 				position:  Vec2::new(0.0, 1.0),
 				remainder: Vec2::new(1.0, 1.0),
-			}),
+				source: Index::from_raw_parts(0, 0),
+			},
 		]);
-		let hit = result.unwrap();
+		let result = maybe_result.unwrap();
+		let hit = &result.deflections[0];
 		assert_eq!(hit.times.min().unwrap(), 0.5);
 		assert_eq!(hit.times.max().unwrap(), 0.5);
 		assert_eq!(hit.normal.x, 1.0);
@@ -172,116 +206,131 @@ mod test_combine_deflection {
 
 	#[test]
 	fn gets_closest() {
-		let result = Deflection::combine(vec![
-			Some(Deflection {
+		let maybe_result = TotalDeflection::try_new(vec![
+			Deflection {
 				times: Range::from_value(0.5),
 				normal: Vec2::new(1.0, 0.0),
 				deflected: true,
 				position:  Vec2::zero(),
 				remainder: Vec2::zero(),
-			}),
-			Some(Deflection {
+				source: Index::from_raw_parts(0, 0),
+			},
+			Deflection {
 				times: Range::from_value(0.9),
 				normal: Vec2::new(0.0, 1.0),
 				deflected: true,
 				position:  Vec2::zero(),
 				remainder: Vec2::zero(),
-			}),
+				source: Index::from_raw_parts(0, 0),
+			},
 		]);
-		let hit = result.unwrap();
+		let result = maybe_result.unwrap();
+		let hit = &result.deflections[0];
 		assert_eq!(hit.times.min().unwrap(), 0.5);
 		assert_eq!(hit.times.max().unwrap(), 0.5);
 	}
 
 	#[test]
 	fn two_normals() {
-		let result = Deflection::combine(vec![
-			Some(Deflection {
+		let maybe_result = TotalDeflection::try_new(vec![
+			Deflection {
 				times: Range::from_value(0.9),
 				normal: Vec2::new(-1.0, 0.0),
 				deflected: true,
 				position:  Vec2::new(0.0, 1.0),
 				remainder: Vec2::new(1.0, 1.0),
-			}),
-			Some(Deflection {
+				source: Index::from_raw_parts(0, 0),
+			},
+			Deflection {
 				times: Range::from_value(0.9),
 				normal: Vec2::new( 0.0,-1.0),
 				deflected: true,
 				position:  Vec2::new(0.0, 1.0),
 				remainder: Vec2::new(1.0, 1.0),
-			}),
+				source: Index::from_raw_parts(0, 0),
+			},
 		]);
-		let hit = result.unwrap();
-		assert_eq!(hit.remainder.x, 0.0);
-		assert_eq!(hit.remainder.y, 0.0);
+		let result = maybe_result.unwrap();
+		let remainder = result.final_position - result.deflections[0].position;
+		assert_eq!(remainder.x, 0.0);
+		assert_eq!(remainder.y, 0.0);
 	}
 
 	#[test]
 	fn two_same_normals() {
-		let result = Deflection::combine(vec![
-			Some(Deflection {
+		let maybe_result = TotalDeflection::try_new(vec![
+			Deflection {
 				times: Range::from_value(0.9),
 				normal: Vec2::new(-1.0, 0.0),
 				deflected: true,
 				position:  Vec2::zero(),
 				remainder: Vec2::new(1.0, 1.0),
-			}),
-			Some(Deflection {
+				source: Index::from_raw_parts(0, 0),
+			},
+			Deflection {
 				times: Range::from_value(0.9),
 				normal: Vec2::new(-1.0, 0.0),
 				deflected: true,
 				position:  Vec2::zero(),
 				remainder: Vec2::new(1.0, 1.0),
-			}),
+				source: Index::from_raw_parts(0, 0),
+			},
 		]);
-		let hit = result.unwrap();
-		assert_eq!(hit.remainder.x, 1.0);
-		assert_eq!(hit.remainder.y, 1.0);
+		let result = maybe_result.unwrap();
+		let remainder = result.final_position - result.deflections[0].position;
+		assert_eq!(remainder.x, 1.0);
+		assert_eq!(remainder.y, 1.0);
 	}
 
 	#[test]
 	fn opposing_normals() { // Normals on opposite sides of the remaining movement.
-		let result = Deflection::combine(vec![
-			Some(Deflection {
+		let maybe_result = TotalDeflection::try_new(vec![
+			Deflection {
 				times: Range::from_value(0.9),
 				normal: Vec2::new(-1.0, 0.0),
 				deflected: true,
 				position:  Vec2::zero(),
 				remainder: Vec2::new(1.0, 1.0),
-			}),
-			Some(Deflection {
+				source: Index::from_raw_parts(0, 0),
+			},
+			Deflection {
 				times: Range::from_value(0.9),
 				normal: Vec2::new(0.0, -1.0),
 				deflected: true,
 				position:  Vec2::zero(),
 				remainder: Vec2::new(1.0, 1.0),
-			}),
+				source: Index::from_raw_parts(0, 0),
+			},
 		]);
-		let hit = result.unwrap();
-		assert_eq!(hit.remainder.x, 0.0);
-		assert_eq!(hit.remainder.y, 0.0);
+		let result = maybe_result.unwrap();
+		let remainder = result.final_position - result.deflections[0].position;
+		assert_eq!(remainder.x, 0.0);
+		assert_eq!(remainder.y, 0.0);
 	}
 
 	#[test]
 	fn similar_normals() { // Normals on same sides of the remaining movement.
-		let result = Deflection::combine(vec![
-			Some(Deflection {
+		let maybe_result = TotalDeflection::try_new(vec![
+			Deflection {
 				times: Range::from_value(0.9),
 				normal: Vec2::new(-1.0, 0.0),
 				deflected: true,
 				position:  Vec2::zero(),
 				remainder: Vec2::new(1.0, 1.0),
-			}),
-			Some(Deflection {
+				source: Index::from_raw_parts(0, 0),
+			},
+			Deflection {
 				times: Range::from_value(0.9),
 				normal: Vec2::new(-1.0, 1.0),
 				deflected: true,
 				position:  Vec2::zero(),
 				remainder: Vec2::new(1.0, 1.0),
-			}),
+				source: Index::from_raw_parts(0, 0),
+			},
 		]);
-		let hit = result.unwrap();
-		assert_eq!(hit.remainder.x, 1.0);
-		assert_eq!(hit.remainder.y, 1.0);
+		let result = maybe_result.unwrap();
+		let remainder = result.final_position - result.deflections[0].position;
+		assert_eq!(remainder.x, 1.0);
+		assert_eq!(remainder.y, 1.0);
 	}
 }

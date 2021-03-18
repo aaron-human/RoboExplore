@@ -32,13 +32,18 @@ impl Bullet {
 	/// Updates the bullet. Returns if the bullet should stay alive.
 	pub fn update(&mut self, elapsed_seconds : f32, collision : &CollisionSystem) -> bool {
 		// TODO: Make the below more efficient.
-		let movement = self.velocity.scale(elapsed_seconds);
-		let new_movement = collision.collide_circle(&self.shape.center, self.shape.radius, &movement);
-		if EPSILON < (&new_movement - movement).length() {
-			return false;
+		let mut movement = self.velocity.scale(elapsed_seconds);
+		let collisions = collision.collide_circle(&self.shape.center, self.shape.radius, &movement);
+		if let Some(collision) = collisions.last() {
+			let new_position = collision.final_position;
+			let new_movement = new_position - self.shape.center;
+			if EPSILON < (&new_movement - movement).length() {
+				return false;
+			}
+			movement = new_movement;
 		}
-		self.shape.center += new_movement;
-		self.draw.set_transform(self.draw.get_transform().translate_before(&Vec3::new(new_movement.x, new_movement.y, 0.0)));
+		self.shape.center += movement;
+		self.draw.set_transform(self.draw.get_transform().translate_before(&Vec3::new(movement.x, movement.y, 0.0)));
 		true
 	}
 

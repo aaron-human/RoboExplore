@@ -260,15 +260,17 @@ impl Game {
 		if 0.0 < movement.length() {
 			movement.set_length(elapsed_seconds * PLAYER_SPEED);
 
-			let new_movement = self.collision.collide_circle(
+			let collisions = self.collision.collide_circle(
 				&Vec2::new(self.player_position.x, self.player_position.y),
 				PLAYER_RADIUS,
 				&Vec2::new(movement.x, movement.y),
 			);
-			movement.x = new_movement.x;
-			movement.y = new_movement.y;
-
-			self.player_position += movement;
+			if let Some(collision) = collisions.last() {
+				self.player_position.x = collision.final_position.x;
+				self.player_position.y = collision.final_position.y;
+			} else {
+				self.player_position += movement;
+			}
 			self.player.set_transform(Mat4::new().translate_before(&self.player_position));
 		}
 
