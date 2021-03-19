@@ -94,6 +94,8 @@ impl Game {
 				&Vec2::new(rect.x_max(), rect.y_max()),
 			)));
 		}
+
+		self.player.gravity_acceleration.y = -300.0; // TODO 800
 	}
 
 	pub fn update(&mut self, elapsed_seconds : f32) {
