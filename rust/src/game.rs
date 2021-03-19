@@ -95,13 +95,13 @@ impl Game {
 			)));
 		}
 
-		self.player.gravity_acceleration.y = -300.0; // TODO 800
+		self.player.gravity_acceleration.y = -800.0;
 	}
 
 	pub fn update(&mut self, elapsed_seconds : f32) {
 		self.elapsed += elapsed_seconds;
 
-		self.player.update(elapsed_seconds, &self.keyboard, &self.collision);
+		self.player.update(self.elapsed, elapsed_seconds, &self.keyboard, &self.collision);
 	}
 
 	pub fn on_resize(&mut self, width : u32, height : u32) {
