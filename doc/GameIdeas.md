@@ -33,3 +33,12 @@
 ---
 * Perhaps have **several crises** that the world has gone through. And you're just seeing the latest?
 * Maybe the creators aren't human?
+
+
+Idea for the starting area: You're a cleaning bot in a locked down residential area. Spend some time running around the safety before spotting a playful robot that modifies you (upgrades!). You deal with some mini-boss, then containment is breached. You're told to flee right by the intercom. If you go the other way, gray goo eats you. Escapeing to the right basically beings the game (welcome to the (fairly) open world).
+
+If I wanted to be mean, could make it so if you don't do well enough getting out (fast enough) then your playful companion dies?
+
+---
+
+A boss that's a big old robot that you have to crawl through and attack. The robot walks around, you've got to not get stomped and make your way to poles (antenna?) on it. Could maybe have multiple marching around a central core?
