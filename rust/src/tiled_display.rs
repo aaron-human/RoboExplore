@@ -44,7 +44,7 @@ impl TiledDisplay {
 				let width = layer.get_width();
 				let height = layer.get_height();
 				let offset = layer.get_offset();
-				let depth = -(layer_index as f32) / 100.0;
+				let depth = 1.0 - (layer_index as f32) / 100.0;
 				let mut tile_space = layer.get_size(); // How much space to give the tile. It may not use it all.
 				tile_space.x /= width as f32;
 				tile_space.y /= height as f32;

@@ -13,11 +13,11 @@ pub mod display_buffer;
 pub mod tiled;
 pub mod tiled_display;
 pub mod tiled_geometry;
+pub mod player;
 mod camera;
 pub mod mouse;
 pub mod keyboard;
 pub mod display_text;
-mod bullet;
 mod game;
 
 use console_error_panic_hook;
