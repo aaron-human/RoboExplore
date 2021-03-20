@@ -101,7 +101,7 @@ impl Game {
 	pub fn update(&mut self, elapsed_seconds : f32) {
 		self.elapsed += elapsed_seconds;
 
-		self.player.update(self.elapsed, elapsed_seconds, &self.keyboard, &self.collision);
+		self.player.update(self.elapsed, elapsed_seconds, &self.keyboard, &self.collision, &self.tiled_geometry);
 	}
 
 	pub fn on_resize(&mut self, width : u32, height : u32) {

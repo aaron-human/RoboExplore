@@ -1,4 +1,5 @@
 
+use super::super::externals::log;
 use super::consts::*;
 use super::vec2::*;
 
@@ -9,6 +10,13 @@ pub struct Bounds2 {
 	x_max : f32,
 	y_min : f32,
 	y_max : f32,
+}
+
+#[derive(PartialEq)]
+enum RelativePosition {
+	Above = 0,
+	Between = 1,
+	Below = 2,
 }
 
 impl Bounds2 {
@@ -87,6 +95,48 @@ impl Bounds2 {
 		EPSILON >= other.x_min - self.x_max &&
 		EPSILON >= self.y_min - other.y_max &&
 		EPSILON >= other.y_min - self.y_max
+	}
+
+	/// Finds the point on the line segment that intersects with this instance.
+	/// When possible tries to find the point that's closest to the start.
+	pub fn collide_with_line_segment(&self, start : &Vec2, end : &Vec2) -> Option<Vec2> {
+		let x_relative = if start.x > self.x_max { RelativePosition::Above } else if start.x < self.x_min { RelativePosition::Below } else { RelativePosition::Between };
+		let y_relative = if start.y > self.y_max { RelativePosition::Above } else if start.y < self.y_min { RelativePosition::Below } else { RelativePosition::Between };
+
+		// If it starts inside, then that's the closest point.
+		if RelativePosition::Between == x_relative && RelativePosition::Between == y_relative {
+			return Some(start.clone());
+		}
+		// Otherwise, much check if intersects any of the outer boundaries of the rectangle.
+		let delta = end - start;
+		if RelativePosition::Above == x_relative && -EPSILON > delta.x && end.x <= self.x_max {
+			// Being above the x means can only intersect with the x_max wall. Check that.
+			let hit = start + delta.scale((self.x_max - start.x) / delta.x);
+			if self.y_min <= hit.y && hit.y <= self.y_max {
+				return Some(hit);
+			}
+		} else if RelativePosition::Below == x_relative && EPSILON < delta.x && end.x >= self.x_min {
+			// Being above the x means can only intersect with the x_max wall. Check that.
+			let hit = start + delta.scale((self.x_min - start.x) / delta.x);
+			if self.y_min <= hit.y && hit.y <= self.y_max {
+				return Some(hit);
+			}
+		}
+		if RelativePosition::Above == y_relative && -EPSILON > delta.y && end.y <= self.y_max {
+			// Being above the x means can only intersect with the x_max wall. Check that.
+			let hit = start + delta.scale((self.y_max - start.y) / delta.y);
+			if self.x_min <= hit.x && hit.x <= self.x_max {
+				return Some(hit);
+			}
+		} else if RelativePosition::Below == y_relative && EPSILON < delta.y && end.y >= self.y_min {
+			// Being above the x means can only intersect with the x_max wall. Check that.
+			let hit = start + delta.scale((self.y_min - start.y) / delta.y);
+			if self.x_min <= hit.x && hit.x <= self.x_max {
+				return Some(hit);
+			}
+		}
+		// If nothing happened, then there is not intersection.
+		None
 	}
 }
 

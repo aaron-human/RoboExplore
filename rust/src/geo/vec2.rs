@@ -29,6 +29,7 @@ impl Vec2 {
 impl_op_ex!(* |left: &Vec2, right: f32| -> Vec2 { Vec2{ x: left.x * right, y: left.y * right } } );
 impl_op_ex!(+ |left: &Vec2, right: &Vec2| -> Vec2 { Vec2{ x: left.x + right.x, y: left.y + right.y } } );
 impl_op_ex!(- |left: &Vec2, right: &Vec2| -> Vec2 { Vec2{ x: left.x - right.x, y: left.y - right.y } } );
+impl_op!(*= |left: &mut Vec2, right: f32| { left.x *= right; left.y *= right; } );
 impl_op!(+= |left: &mut Vec2, right: Vec2| { left.x += right.x; left.y += right.y; } );
 impl_op!(+= |left: &mut Vec2, right: &Vec2| { left.x += right.x; left.y += right.y; } );
 impl_op_ex!(-= |left: &mut Vec2, right: Vec2| { left.x -= right.x; left.y -= right.y; } );

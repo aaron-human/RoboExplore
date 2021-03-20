@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::f32::INFINITY;
 
 use crate::geo::bounds2::Bounds2;
 use crate::geo::vec2::Vec2;
@@ -32,6 +33,41 @@ impl TiledGeometry {
 	/// The collision rectangle geometry.
 	pub fn get_collision_rects<'a>(&'a self) -> &'a Vec<Bounds2> {
 		&self.collision_rects
+	}
+
+	/// Finds the closest point inside the tracts.
+	pub fn get_closest_track_point(&self, position : &Vec2) -> Vec2 {
+		let mut closest = Vec2::new(0.0, 0.0);
+		let mut closest_distance = INFINITY;
+		for rect in &self.tracks {
+			let limited = Vec2::new(
+				position.x.min(rect.x_max()).max(rect.x_min()),
+				position.y.min(rect.y_max()).max(rect.y_min()),
+			);
+			let distance = (limited - position).length();
+			if distance < closest_distance {
+				closest = limited;
+				closest_distance = distance;
+			}
+		}
+		closest
+	}
+
+	/// Finds the closest point on a track that intersects with a given moving point.
+	pub fn collide_moving_point_with_track(&self, position : &Vec2, movement : &Vec2) -> Option<Vec2> {
+		let end = position + movement;
+		let mut closest = None;
+		let mut closest_distance = INFINITY;
+		for rect in &self.tracks {
+			if let Some(intersection) = rect.collide_with_line_segment(&position, &end) {
+				let distance = (position - intersection).length();
+				if distance < closest_distance {
+					closest = Some(intersection);
+					closest_distance = distance;
+				}
+			}
+		}
+		closest
 	}
 
 	/// Loads in all data from a TiledFile instance.
