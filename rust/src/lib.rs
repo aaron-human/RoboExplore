@@ -17,6 +17,7 @@ pub mod player;
 mod camera;
 pub mod mouse;
 pub mod keyboard;
+pub mod gamepad;
 pub mod display_text;
 mod game;
 

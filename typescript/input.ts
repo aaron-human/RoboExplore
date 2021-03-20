@@ -180,7 +180,6 @@ namespace ExampleProject {
 				// If find **any** change, then this is the right gamepad.
 				if (!this._gamepads[index] || !this._gamepads[index].equals(current)) {
 					this._gamepads[index] = current;
-					console.log(`Gamepad changed to #${index}: ${gamepads[index].id}`);
 					return current;
 				}
 			}

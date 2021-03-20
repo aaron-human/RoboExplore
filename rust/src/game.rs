@@ -3,6 +3,7 @@ use crate::color::*;
 use crate::camera::*;
 use crate::mouse::*;
 use crate::keyboard::*;
+use crate::gamepad::*;
 use crate::display_text::*;
 use crate::tiled::*;
 use crate::tiled_display::*;
@@ -17,6 +18,7 @@ pub struct Game {
 	camera : Camera,
 	mouse : Mouse,
 	keyboard : Keyboard,
+	gamepad : Gamepad,
 	#[allow(dead_code)] // This should be stored, so the background buffer isn't recycled...
 	elapsed : f32,
 
@@ -55,6 +57,7 @@ impl Game {
 			camera: Camera::new(),
 			mouse: Mouse::new(),
 			keyboard: Keyboard::new(),
+			gamepad: Gamepad::new(),
 			elapsed: 0.0,
 
 			collision : CollisionSystem::new(),
@@ -101,7 +104,7 @@ impl Game {
 	pub fn update(&mut self, elapsed_seconds : f32) {
 		self.elapsed += elapsed_seconds;
 
-		self.player.update(self.elapsed, elapsed_seconds, &self.keyboard, &self.collision, &self.tiled_geometry);
+		self.player.update(self.elapsed, elapsed_seconds, &self.keyboard, &self.gamepad, &self.collision, &self.tiled_geometry);
 	}
 
 	pub fn on_resize(&mut self, width : u32, height : u32) {
@@ -128,7 +131,9 @@ impl Game {
 		self.mouse.on_leave();
 	}
 
-	pub fn on_gamepad_changed(&self, valid : bool, buttons : Vec<f32>, raw_analog_sticks : Vec<f32>) {
-		log(&format!("Gamepad state: {:?} {:?} {:?}", valid, buttons, raw_analog_sticks));
+	pub fn on_gamepad_changed(&mut self, _valid : bool, buttons : Vec<f32>, raw_analog_sticks : Vec<f32>) {
+		// TODO: Some sort of "disconnect pause" via `_valid`?
+		//log(&format!("Gamepad state: {:?} {:?} {:?}", valid, buttons, raw_analog_sticks));
+		self.gamepad.update(buttons, raw_analog_sticks);
 	}
 }

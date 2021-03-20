@@ -10,6 +10,7 @@ use crate::display_texture::DisplayTexture;
 use crate::display_buffer::{DisplayBuffer, DisplayBufferType};
 use crate::geo::collision_system::CollisionSystem;
 use crate::keyboard::*;
+use crate::gamepad::*;
 use crate::tiled_geometry::TiledGeometry;
 
 const PLAYER_RADIUS : f32 = 8.0;
@@ -106,27 +107,31 @@ impl Player {
 	}
 
 	/// The fuction that updates the player's position and movement.
-	pub fn update(&mut self, current_time : f32, elapsed_seconds : f32, keyboard : &Keyboard, collision : &CollisionSystem, geometry : &TiledGeometry) {
+	pub fn update(&mut self, current_time : f32, elapsed_seconds : f32, keyboard : &Keyboard, gamepad : &Gamepad, collision : &CollisionSystem, geometry : &TiledGeometry) {
 
 		let mut gravity_active = EPSILON < self.gravity_acceleration.length();
 
 		// Handle the player's inputs.
-		let mut input_movement = Vec2::zero();
+		let mut input_direction = gamepad.direction();
+		let mut input_scale = input_direction.x.abs().max(input_direction.y.abs());
 		if keyboard.is_down(Key::UP) {
-			input_movement.y += 1.0;
+			input_direction.y += 1.0;
 		}
 		if keyboard.is_down(Key::LEFT) {
-			input_movement.x -= 1.0;
+			input_direction.x -= 1.0;
 		}
 		if keyboard.is_down(Key::DOWN) {
-			input_movement.y -= 1.0;
+			input_direction.y -= 1.0;
 		}
 		if keyboard.is_down(Key::RIGHT) {
-			input_movement.x += 1.0;
+			input_direction.x += 1.0;
 		}
-		if 0.0 < input_movement.length() {
-			(&mut input_movement).set_length(elapsed_seconds * PLAYER_SPEED);
-		}
+		if input_scale < EPSILON { input_scale = 1.0; }
+		let input_movement = if 0.0 < input_direction.length() {
+			input_direction.set_length(input_scale * elapsed_seconds * PLAYER_SPEED)
+		} else {
+			Vec2::new(0.0, 0.0)
+		};
 
 		// Handle gravity.
 		let on_track = TrackState::On == self.track_state || TrackState::Started == self.track_state;
@@ -140,7 +145,8 @@ impl Player {
 		// Handle jumping.
 		// This overrides gravity.
 		let gravity_direction = self.gravity_acceleration.norm();
-		if keyboard.is_down(Key::UP) && gravity_active  {
+		let jump_pressed = gamepad.is_down(Button::A) || keyboard.is_down(Key::UP);
+		if jump_pressed && gravity_active  {
 			let height = self.position.dot(&gravity_direction);
 			if 0.0 > self.jump_start_time && self.on_ground {
 				// Start jumping.
@@ -173,7 +179,8 @@ impl Player {
 
 		// If the player is trying to snap, then try to collide the movement with tracks to see if can snap.
 		// Also check if the starting position is just close enough.
-		if keyboard.is_down(Key::SPACE) {
+		let track_pressed = gamepad.is_down(Button::R) || keyboard.is_down(Key::SPACE);
+		if track_pressed {
 			if TrackState::Off == self.track_state {
 				self.track_state = TrackState::Starting;
 			}
