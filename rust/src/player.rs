@@ -62,6 +62,8 @@ pub struct Player {
 	jump_start_time : f32,
 	/// The starting height of the current jump.
 	jump_start_height : f32,
+	/// Whether the current jump is just done. This is mainly a way for jumps to be cut short.
+	jump_done : bool,
 
 	/// The display buffer for the player.
 	display : DisplayBuffer,
@@ -95,6 +97,7 @@ impl Player {
 
 			jump_start_time : -1.0,
 			jump_start_height : 0.0,
+			jump_done : true,
 
 			display : display_buffer,
 			texture
@@ -153,7 +156,8 @@ impl Player {
 				self.gravity_velocity = gravity_direction.set_length(-self.calc_jump_velocity(0.0, MIN_JUMP_HEIGHT));
 				self.jump_start_time = current_time;
 				self.jump_start_height = height;
-			} else if 0.0 < self.jump_start_time {
+				self.jump_done = false;
+			} else if 0.0 < self.jump_start_time && !self.jump_done {
 				let jump_elapsed_time : f32 = current_time - self.jump_start_time;
 				if jump_elapsed_time < MAX_JUMP_TIME {
 					// Then continue to push the jump up.
@@ -168,6 +172,7 @@ impl Player {
 			}
 		} else {
 			self.jump_start_time = -1.0;
+			self.jump_done = true;
 		}
 
 		// Now calculate the projected movement.
@@ -232,22 +237,30 @@ impl Player {
 				&total_movement,
 			);
 
-			// Stop gravity if on the ground.
+			// Stop gravity if on the ground. Also stop a jump if hit a ceiling.
 			{
 				self.on_ground = false;
+				let mut hit_ceiling = false;
 				let threshold = -0.9 * self.gravity_acceleration.length();
 				for collision in &collisions {
 					for deflection in &collision.deflections {
-						if threshold > deflection.normal.dot(self.gravity_acceleration) {
+						let coincidence = deflection.normal.dot(self.gravity_acceleration);
+						if threshold > coincidence {
 							self.on_ground = true;
-							break;
+						}
+						if -threshold < coincidence {
+							hit_ceiling = true;
 						}
 					}
-					if self.on_ground { break; }
 				}
 				if self.on_ground {
 					self.gravity_velocity.x = 0.0;
 					self.gravity_velocity.y = 0.0;
+				}
+				if hit_ceiling {
+					self.gravity_velocity.x = 0.0;
+					self.gravity_velocity.y = 0.0;
+					self.jump_done = true;
 				}
 			}
 
