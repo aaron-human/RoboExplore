@@ -8,8 +8,59 @@ namespace ExampleProject {
 	/// The type of callback for mouse buttons are pressed/released.
 	export type MouseButtonCallback = (button : number) => void;
 
+	/// A way to describe a gamepad's state.
+	export class GamepadState {
+		/// If this actually exists. Gets set to true once know that an actual Gamepad object was used to construct this.
+		public valid : boolean = false;
+		/// The button states.
+		public readonly buttons : number[] = [];
+		/// The state of any analog sticks.
+		/// This matches the values passed in by the DOM.
+		public readonly analogSticks : number[] = [];
+
+		/// Creates an instance from the given DOM object.
+		public constructor(source : Gamepad) {
+			if (!source) { return; } // The source may be 'null' if it got disconnected.
+			this.valid = true;
+			for (let button of source.buttons) {
+				let state = 0.0; // Assume not pressed.
+				if (undefined !== button["pressed"]) {
+					state = (button.pressed) ? (1.0) : (0.0);
+				}
+				if (undefined !== button["value"]) {
+					state = button.value;
+				}
+				if ("number" === typeof(button)) {
+					// Some older browsers just store the button's state directly as a number.
+					state = button;
+				}
+				this.buttons.push(state);
+			}
+			// The analog sticks data is packed as a weird pile of floating point values.
+			// ... Why? Well, whatever, that's easy to pass to WASM/Rust.
+			for (let index = 0;index < source.axes.length;index += 1) {
+				this.analogSticks.push(source.axes[index]);
+			}
+		}
+
+		/// Check if this has the same value as some other GamepadState.
+		public equals(other : GamepadState) : boolean {
+			if (this.buttons.length !== other.buttons.length) { return false; }
+			for (let index = 0;index < this.buttons.length;index += 1) {
+				if (this.buttons[index] !== other.buttons[index]) { return false; }
+			}
+
+			if (this.analogSticks.length !== other.analogSticks.length) { return false; }
+			for (let index = 0;index < this.analogSticks.length;index += 1) {
+				if (this.analogSticks[index] !== other.analogSticks[index]) { return false; }
+			}
+
+			return true;
+		}
+	}
+
 	/**
-	 * A class for handling keyboard and mouse intput
+	 * A class for handling keyboard, mouse, and gamepad input.
 	 */
 	export class Input {
 		/// The key-down callback.
@@ -25,6 +76,12 @@ namespace ExampleProject {
 		/// The "mouse leaves the canvas" callback.
 		private _mouseLeaveCallback : MouseFocusCallback = null;
 
+		/// The index of gamepad that just got added.
+		/// An invalid index means none was added.
+		private _gamepadAddedIndex : number = -1;
+		/// The most recent gamepad states. The indices are the Gamepad.index values that the DOM provides.
+		private _gamepads : GamepadState[] = [];
+
 		/// Creates an instance.
 		constructor(private readonly _canvas : HTMLCanvasElement) {
 			document.addEventListener("keydown", this._onKeyDown.bind(this));
@@ -36,6 +93,10 @@ namespace ExampleProject {
 			_canvas.addEventListener("mouseup", this._onMouseUpdate.bind(this));
 			// Prevent right clicking menu from showing
 			_canvas.addEventListener("contextmenu", (event : MouseEvent) => { event.preventDefault(); });
+
+			// Detect when gamepads are connected/started up.
+			window.addEventListener("gamepadconnected", this._onGamepadConnected.bind(this));
+			window.addEventListener("gamepaddisconnected", this._onGamepadDisconnected.bind(this));
 		}
 
 		/// Sets up everything. Including linking the given callbacks.
@@ -89,6 +150,47 @@ namespace ExampleProject {
 			if (this._mouseLeaveCallback) {
 				this._mouseLeaveCallback();
 			}
+		}
+
+		/// Handles a gamepad connecting.
+		private _onGamepadConnected(event : GamepadEvent) {
+			this._gamepadAddedIndex = event.gamepad.index;
+		}
+
+		/// Handles a gamepad disconnecting.
+		private _onGamepadDisconnected(event : GamepadEvent) {
+			// Do I need to do anything here?
+		}
+
+		/// Gets the most recent GamepadState, if it has changed.
+		public getChangedGamepadState() : GamepadState {
+			let gamepads : Gamepad[] = [];
+			if (undefined !== navigator["getGamepads"]) {
+				gamepads = navigator.getGamepads();
+			}
+			if (undefined !== navigator["webkitGetGamepads"]) {
+				// Other browsers use this instead...
+				gamepads = navigator["webkitGetGamepads"]();
+			}
+			// Then compare all the gamepads to their last known states and take the most recent one.
+			for (let index = 0;index < gamepads.length;index += 1) {
+				// Store the data in a way that's easy to check.
+				const current = new GamepadState(gamepads[index]);
+				// Compare it to the known state (if there was one).
+				// If find **any** change, then this is the right gamepad.
+				if (!this._gamepads[index] || !this._gamepads[index].equals(current)) {
+					this._gamepads[index] = current;
+					console.log(`Gamepad changed to #${index}: ${gamepads[index].id}`);
+					return current;
+				}
+			}
+			// If none changed but one was just added, then try that one.
+			const lastResort = this._gamepads[this._gamepadAddedIndex];
+			if (lastResort) {
+				this._gamepadAddedIndex = -1; // Just used up this update.
+				return lastResort;
+			}
+			return null;
 		}
 	}
 }

@@ -72,3 +72,9 @@ pub fn on_mouse_update(x : u32, y : u32, buttons : u8) {
 pub fn on_mouse_leave() {
 	static_singletons::get_game().on_mouse_leave();
 }
+
+/// Notifies the game that the gamepad's state has changed.
+#[wasm_bindgen]
+pub fn on_gamepad_changed(valid : bool, buttons : Vec<f32>, raw_analog_sticks : Vec<f32>) {
+	static_singletons::get_game().on_gamepad_changed(valid, buttons, raw_analog_sticks);
+}

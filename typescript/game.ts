@@ -95,6 +95,16 @@ namespace ExampleProject {
 			const elapsed_seconds = (null !== this._last_update_time) ? (now - this._last_update_time) : (0);
 			this._last_update_time = now;
 
+			// Pass the latest gamepad state to WASM, if anything has changed.
+			const gamepad = this._input.getChangedGamepadState();
+			if (gamepad) {
+				wasm_bindgen.on_gamepad_changed(
+					gamepad.valid,
+					new Float32Array(gamepad.buttons),
+					new Float32Array(gamepad.analogSticks),
+				);
+			}
+
 			// Get the WASM to update
 			wasm_bindgen.update(elapsed_seconds);
 

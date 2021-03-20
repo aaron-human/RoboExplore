@@ -127,4 +127,8 @@ impl Game {
 	pub fn on_mouse_leave(&mut self) {
 		self.mouse.on_leave();
 	}
+
+	pub fn on_gamepad_changed(&self, valid : bool, buttons : Vec<f32>, raw_analog_sticks : Vec<f32>) {
+		log(&format!("Gamepad state: {:?} {:?} {:?}", valid, buttons, raw_analog_sticks));
+	}
 }
