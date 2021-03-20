@@ -25,8 +25,8 @@ impl Camera {
 		self.screen_height = height;
 		let mut display = Mat4::new();
 		display.scale_before(&Vec3::new(
-			2.0 / (width as f32),
-			2.0 / (height as f32),
+			1.0 / ((width as f32)  / 2.0).floor(),
+			1.0 / ((height as f32) / 2.0).ceil(),
 			1.0,
 		));
 		setDisplayTransform(display.export());
