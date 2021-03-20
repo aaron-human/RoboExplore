@@ -14,7 +14,7 @@ use crate::tiled_geometry::TiledGeometry;
 
 const PLAYER_RADIUS : f32 = 8.0;
 /// How fast the player moves in pixels per second.
-const PLAYER_SPEED : f32 = 100.0;
+const PLAYER_SPEED : f32 = 120.0;
 
 /// Max track snap distance.
 const MAX_TRACK_SNAP_DISTANCE : f32 = 3.0;
