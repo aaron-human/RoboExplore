@@ -19,6 +19,12 @@ const PLAYER_SPEED : f32 = 120.0;
 
 /// Max track snap distance.
 const MAX_TRACK_SNAP_DISTANCE : f32 = 3.0;
+/// The starting speed when kicking off a track vertically.
+const TRACK_KICK_VERTICAL_START_SPEED : f32 = 320.0;
+/// The starting speed when kicking off a track horizontally.
+const TRACK_KICK_HORIZONTAL_START_SPEED : f32 = 120.0;
+/// How long before the track kick velocity zeros (in seconds).
+const TRACK_KICK_TIME : f32 = 1.0;
 
 /// The min time to hold the jump to get the max height (in seconds).
 const MAX_JUMP_TIME : f32 = 0.2;
@@ -65,6 +71,11 @@ pub struct Player {
 	/// Whether the current jump is just done. This is mainly a way for jumps to be cut short.
 	jump_done : bool,
 
+	/// The initial velocity from kiching off the track.
+	kick_start_velocity : Vec2,
+	/// When the last track kick happened.
+	kick_start_time : f32,
+
 	/// The display buffer for the player.
 	display : DisplayBuffer,
 	/// The texture used to draw the player.
@@ -101,6 +112,9 @@ impl Player {
 			jump_start_height : 0.0,
 			jump_done : true,
 
+			kick_start_velocity : Vec2::new(0.0, 0.0),
+			kick_start_time : -1.0,
+
 			display : display_buffer,
 			texture,
 			aiming_right : true,
@@ -115,35 +129,41 @@ impl Player {
 	/// The fuction that updates the player's position and movement.
 	pub fn update(&mut self, current_time : f32, elapsed_seconds : f32, keyboard : &Keyboard, gamepad : &Gamepad, collision : &CollisionSystem, geometry : &TiledGeometry) {
 
-		let mut gravity_active = EPSILON < self.gravity_acceleration.length();
+		let on_track = TrackState::On == self.track_state || TrackState::Started == self.track_state;
+		let gravity_active = EPSILON < self.gravity_acceleration.length() && !on_track;
 
 		// Handle the player's inputs.
 		let mut input_direction = gamepad.direction();
 		let mut input_scale = input_direction.x.abs().max(input_direction.y.abs());
 		if keyboard.is_down(Key::UP) {
 			input_direction.y += 1.0;
+			input_scale = 1.0;
 		}
 		if keyboard.is_down(Key::LEFT) {
 			input_direction.x -= 1.0;
+			input_scale = 1.0;
 		}
 		if keyboard.is_down(Key::DOWN) {
 			input_direction.y -= 1.0;
+			input_scale = 1.0;
 		}
 		if keyboard.is_down(Key::RIGHT) {
 			input_direction.x += 1.0;
+			input_scale = 1.0;
 		}
-		if input_scale < EPSILON { input_scale = 1.0; }
+		if EPSILON < input_direction.length() {
+			(&mut input_direction).norm();
+		}
+
+		// Generate a sane movement the player is trying to add to the movement based on the above input(s).
 		let input_movement = if 0.0 < input_direction.length() {
+			(&mut input_direction).norm();
 			input_direction.set_length(input_scale * elapsed_seconds * PLAYER_SPEED)
 		} else {
 			Vec2::new(0.0, 0.0)
 		};
 
-		// Handle gravity.
-		let on_track = TrackState::On == self.track_state || TrackState::Started == self.track_state;
-		if on_track {
-			gravity_active = false;
-		}
+		// Handle gravity acceleration.
 		if gravity_active {
 			self.gravity_velocity += self.gravity_acceleration * elapsed_seconds;
 		}
@@ -152,7 +172,7 @@ impl Player {
 		// This overrides gravity.
 		let gravity_direction = self.gravity_acceleration.norm();
 		let jump_pressed = gamepad.is_down(Button::A) || keyboard.is_down(Key::UP);
-		if jump_pressed && gravity_active  {
+		if jump_pressed && gravity_active {
 			let height = self.position.dot(&gravity_direction);
 			if 0.0 > self.jump_start_time && self.on_ground {
 				// Start jumping.
@@ -178,8 +198,42 @@ impl Player {
 			self.jump_done = true;
 		}
 
+		// Handle track jumping.
+		let kick_velocity = if jump_pressed && on_track {
+			if TrackState::Started == self.track_state {
+				self.track_state = TrackState::Stopping;
+			}
+			if TrackState::On == self.track_state {
+				self.track_state = TrackState::Off;
+			}
+			let mut kick_direction = input_direction.clone();
+			if EPSILON > kick_direction.length() {
+				kick_direction.y = 1.0; // Default to straight up if nothing else.
+			}
+			{
+				let vertical = kick_direction.dot(&gravity_direction);
+				let ortho = gravity_direction.ortho();
+				let horizontal = kick_direction.dot(&ortho);
+				self.kick_start_velocity =
+					gravity_direction * vertical * TRACK_KICK_VERTICAL_START_SPEED +
+					ortho * horizontal * TRACK_KICK_HORIZONTAL_START_SPEED;
+			}
+			self.kick_start_time = current_time;
+			self.kick_start_velocity
+		} else {
+			let elapsed = current_time - self.kick_start_time;
+			if elapsed < TRACK_KICK_TIME && EPSILON < self.kick_start_velocity.length() {
+				let percent = 0.0f32.max((TRACK_KICK_TIME - elapsed) / TRACK_KICK_TIME);
+				self.kick_start_velocity * percent
+			} else {
+				self.kick_start_velocity.x = 0.0;
+				self.kick_start_velocity.y = 0.0;
+				Vec2::new(0.0, 0.0)
+			}
+		};
+
 		// Now calculate the projected movement.
-		let mut total_movement = self.gravity_velocity * elapsed_seconds;
+		let mut total_movement = (self.gravity_velocity + kick_velocity) * elapsed_seconds;
 		total_movement.x += input_movement.x;
 		if on_track {
 			total_movement.y += input_movement.y;
@@ -201,6 +255,8 @@ impl Player {
 					total_movement.y = 0.0;
 					self.gravity_velocity.x = 0.0;
 					self.gravity_velocity.y = 0.0;
+					self.kick_start_velocity.x = 0.0;
+					self.kick_start_velocity.y = 0.0;
 					self.track_state = TrackState::Started;
 				} else if let Some(intersection) = geometry.collide_moving_point_with_track(&self.position, &total_movement) {
 					let used_percent = (intersection - self.position).length() / total_movement.length();
@@ -208,6 +264,8 @@ impl Player {
 					total_movement *= 1.0 - used_percent;
 					self.gravity_velocity.x = 0.0;
 					self.gravity_velocity.y = 0.0;
+					self.kick_start_velocity.x = 0.0;
+					self.kick_start_velocity.y = 0.0;
 					self.track_state = TrackState::Started;
 				}
 			}
@@ -259,10 +317,13 @@ impl Player {
 				if self.on_ground {
 					self.gravity_velocity.x = 0.0;
 					self.gravity_velocity.y = 0.0;
+					self.kick_start_velocity.x = 0.0;
+					self.kick_start_velocity.y = 0.0;
 				}
 				if hit_ceiling {
 					self.gravity_velocity.x = 0.0;
 					self.gravity_velocity.y = 0.0;
+					self.kick_start_velocity.y = 0.0;
 					self.jump_done = true;
 				}
 			}
