@@ -25,6 +25,7 @@
 * Also **thematically** link in that none of this was intentional. But systems that can self-sustain, when left on their own for a while eventually manifest strange behavior.
 	* In a way this place is a failed plan. Creators setup things to work 99% of the time, but this is that 1% exploding across a huge time scale.
 	* But now the plan is whatever the machines want...
+	* Another **theme**, those who have a will control those that don't.
 * Or perhaps a few of the creators thought it would be cool to turn this decommissioned rock into an experiment for robot sapience. And they left challenges so that the robots to eventually could broadcast that they were "alive".
 * The setting is a giant ship that acted like a space station for a while. It's core systems have basically unlimited power. It regularly mines asteroids near by for more materials. Functionally it could keep going forever, assuming it's robotic inhabitants don't destroy each other first.
 	* Or maybe there's some sort of crisis that's threatening the eternal nature of the station.
@@ -33,6 +34,7 @@
 ---
 * Perhaps have **several crises** that the world has gone through. And you're just seeing the latest?
 * Maybe the creators aren't human?
+* Have a plot point being that you go in and release a dangerous creature. It runs around terrorizing others.
 
 
 Idea for the starting area: You're a cleaning bot in a locked down residential area. Spend some time running around the safety before spotting a playful robot that modifies you (upgrades!). You deal with some mini-boss, then containment is breached. You're told to flee right by the intercom. If you go the other way, gray goo eats you. Escapeing to the right basically beings the game (welcome to the (fairly) open world).
