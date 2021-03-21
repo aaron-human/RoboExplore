@@ -33,29 +33,18 @@ const MIN_JUMP_HEIGHT : f32 = 16.0;
 /// The min jump height.
 const MAX_JUMP_HEIGHT : f32 = 64.0 + 4.0;
 
-/// The player's state with respect to track handling.
-#[derive(PartialEq)]
-enum TrackState {
-	/// Not on a track, and not trying to get on one.
-	Off = 0,
-	/// Not on a track but trying to get on one.
-	Starting = 1,
-	/// Just snapped to the track.
-	/// Don't allow users to get off the track (as just snapped, so user probably hasn't released the button yet).
-	Started = 2,
-	/// Currently on track. Allows users to unsnap.
-	On = 3,
-	/// Currently leaving the track, but the player hasn't let go of the button yet.
-	Stopping = 4,
-}
-
 /// The player's data.
 pub struct Player {
 	/// The player's position. This is the center of the player.
 	pub position : Vec2,
 
-	/// The player's current interaction with tracks.
-	track_state : TrackState,
+	/// Whether the jump input has been "used up" and should be ignored until it's released.
+	jump_input_used : bool,
+	/// Whether the track snap input has been "used up" and should be ignored until it's released.
+	track_input_used : bool,
+
+	/// Whether the the player is on the track.
+	on_track : bool,
 
 	/// Current acceleration due to gravity.
 	pub gravity_acceleration : Vec2,
@@ -102,7 +91,10 @@ impl Player {
 		Player {
 			position : Vec2::new(0.0, 0.0),
 
-			track_state : TrackState::Off,
+			jump_input_used : false,
+			track_input_used : false,
+
+			on_track : false,
 
 			gravity_acceleration : Vec2::new(0.0, 0.0),
 			gravity_velocity : Vec2::new(0.0, 0.0),
@@ -129,8 +121,7 @@ impl Player {
 	/// The fuction that updates the player's position and movement.
 	pub fn update(&mut self, current_time : f32, elapsed_seconds : f32, keyboard : &Keyboard, gamepad : &Gamepad, collision : &CollisionSystem, geometry : &TiledGeometry) {
 
-		let on_track = TrackState::On == self.track_state || TrackState::Started == self.track_state;
-		let gravity_active = EPSILON < self.gravity_acceleration.length() && !on_track;
+		let gravity_active = EPSILON < self.gravity_acceleration.length() && !self.on_track;
 
 		// Handle the player's inputs.
 		let mut input_direction = gamepad.direction();
@@ -174,13 +165,15 @@ impl Player {
 		let jump_pressed = gamepad.is_down(Button::A) || keyboard.is_down(Key::UP);
 		if jump_pressed && gravity_active {
 			let height = self.position.dot(&gravity_direction);
-			if 0.0 > self.jump_start_time && self.on_ground {
+			if self.on_ground && !self.jump_input_used {
 				// Start jumping.
 				self.gravity_velocity = gravity_direction.set_length(-self.calc_jump_velocity(0.0, MIN_JUMP_HEIGHT));
 				self.jump_start_time = current_time;
 				self.jump_start_height = height;
 				self.jump_done = false;
-			} else if 0.0 < self.jump_start_time && !self.jump_done {
+				self.jump_input_used = true;
+				log("Starting jump!");
+			} else if 0.0 < self.jump_start_time && !self.jump_done { // TODO? Remove jump_start_time check?
 				let jump_elapsed_time : f32 = current_time - self.jump_start_time;
 				if jump_elapsed_time < MAX_JUMP_TIME {
 					// Then continue to push the jump up.
@@ -193,19 +186,17 @@ impl Player {
 					self.gravity_velocity = gravity_direction.set_length(-target_velocity);
 				}
 			}
-		} else {
+		}
+		if !jump_pressed {
 			self.jump_start_time = -1.0;
 			self.jump_done = true;
+			self.jump_input_used = false;
 		}
 
 		// Handle track jumping.
-		let kick_velocity = if jump_pressed && on_track {
-			if TrackState::Started == self.track_state {
-				self.track_state = TrackState::Stopping;
-			}
-			if TrackState::On == self.track_state {
-				self.track_state = TrackState::Off;
-			}
+		let kick_velocity = if self.on_track && jump_pressed && !self.jump_input_used {
+			log("Starting kick!");
+			self.on_track = false;
 			let mut kick_direction = input_direction.clone();
 			if EPSILON > kick_direction.length() {
 				kick_direction.y = 1.0; // Default to straight up if nothing else.
@@ -219,6 +210,7 @@ impl Player {
 					ortho * horizontal * TRACK_KICK_HORIZONTAL_START_SPEED;
 			}
 			self.kick_start_time = current_time;
+			self.jump_input_used = true;
 			self.kick_start_velocity
 		} else {
 			let elapsed = current_time - self.kick_start_time;
@@ -235,18 +227,15 @@ impl Player {
 		// Now calculate the projected movement.
 		let mut total_movement = (self.gravity_velocity + kick_velocity) * elapsed_seconds;
 		total_movement.x += input_movement.x;
-		if on_track {
+		if self.on_track {
 			total_movement.y += input_movement.y;
 		}
 
 		// If the player is trying to snap, then try to collide the movement with tracks to see if can snap.
 		// Also check if the starting position is just close enough.
 		let track_pressed = gamepad.is_down(Button::R) || keyboard.is_down(Key::SPACE);
-		if track_pressed {
-			if TrackState::Off == self.track_state {
-				self.track_state = TrackState::Starting;
-			}
-			if TrackState::Starting == self.track_state {
+		if track_pressed && !self.track_input_used {
+			if !self.on_track {
 				// Try snapping if possible.
 				let closest = geometry.get_closest_track_point(&self.position);
 				if MAX_TRACK_SNAP_DISTANCE >= (closest - self.position).length() {
@@ -257,7 +246,9 @@ impl Player {
 					self.gravity_velocity.y = 0.0;
 					self.kick_start_velocity.x = 0.0;
 					self.kick_start_velocity.y = 0.0;
-					self.track_state = TrackState::Started;
+					self.track_input_used = true;
+					self.on_track = true;
+					log("Snapped to track!");
 				} else if let Some(intersection) = geometry.collide_moving_point_with_track(&self.position, &total_movement) {
 					let used_percent = (intersection - self.position).length() / total_movement.length();
 					self.position = intersection;
@@ -266,24 +257,21 @@ impl Player {
 					self.gravity_velocity.y = 0.0;
 					self.kick_start_velocity.x = 0.0;
 					self.kick_start_velocity.y = 0.0;
-					self.track_state = TrackState::Started;
+					self.track_input_used = true;
+					self.on_track = true;
+					log("Slid to track!");
 				}
-			}
-
-			if TrackState::On == self.track_state {
-				self.track_state = TrackState::Stopping;
-			}
-		} else {
-			// Handle moving the state a little after the button is released.
-			if TrackState::Started == self.track_state {
-				self.track_state = TrackState::On;
-			}
-			if TrackState::Stopping == self.track_state {
-				self.track_state = TrackState::Off;
+			} else {
+				log("Falling off track!");
+				self.track_input_used = true;
+				self.on_track = false;
 			}
 		}
+		if !track_pressed {
+			self.track_input_used = false;
+		}
 		// Then limit movement if on a track.
-		if TrackState::On == self.track_state || TrackState::Started == self.track_state {
+		if self.on_track {
 			// TODO? Could make sure didn't "jump a gap" here?
 			let updated_end = geometry.get_closest_track_point(&(self.position + total_movement));
 			total_movement = updated_end - self.position;
