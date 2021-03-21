@@ -70,6 +70,8 @@ pub struct Player {
 	/// The texture used to draw the player.
 	#[allow(dead_code)] // This should be stored, so it's clear where the instructional text comes from...
 	texture : DisplayTexture,
+	/// Whether the sprite should be looking to the right.
+	aiming_right : bool,
 }
 
 impl Player {
@@ -100,7 +102,8 @@ impl Player {
 			jump_done : true,
 
 			display : display_buffer,
-			texture
+			texture,
+			aiming_right : true,
 		}
 	}
 
@@ -265,12 +268,30 @@ impl Player {
 			}
 
 			// Handle moving with collision.
+			let mut final_delta = total_movement;
 			if let Some(collision) = collisions.last() {
+				final_delta = collision.final_position - self.position;
 				self.position = collision.final_position;
 			} else {
 				self.position += total_movement;
 			}
-			self.display.set_transform(Mat4::new().translate_before(&Vec3::new(self.position.x, self.position.y, 0.0)));
+
+			if 0.0 > final_delta.x {
+				self.aiming_right = false;
+			}
+			if 0.0 < final_delta.x {
+				self.aiming_right = true;
+			}
+
+			// Store the new position.
+			{
+				let mut transform = Mat4::new();
+				transform.translate_before(&Vec3::new(self.position.x, self.position.y, 0.0));
+				if !self.aiming_right {
+					transform.scale_before(&Vec3::new(-1.0, 1.0, 1.0));
+				}
+				self.display.set_transform(&transform);
+			}
 		}
 	}
 }
