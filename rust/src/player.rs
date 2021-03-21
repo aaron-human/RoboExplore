@@ -172,7 +172,6 @@ impl Player {
 				self.jump_start_height = height;
 				self.jump_done = false;
 				self.jump_input_used = true;
-				log("Starting jump!");
 			} else if 0.0 < self.jump_start_time && !self.jump_done { // TODO? Remove jump_start_time check?
 				let jump_elapsed_time : f32 = current_time - self.jump_start_time;
 				if jump_elapsed_time < MAX_JUMP_TIME {
@@ -195,7 +194,6 @@ impl Player {
 
 		// Handle track jumping.
 		let kick_velocity = if self.on_track && jump_pressed && !self.jump_input_used {
-			log("Starting kick!");
 			self.on_track = false;
 			let mut kick_direction = input_direction.clone();
 			if EPSILON > kick_direction.length() {
@@ -248,7 +246,6 @@ impl Player {
 					self.kick_start_velocity.y = 0.0;
 					self.track_input_used = true;
 					self.on_track = true;
-					log("Snapped to track!");
 				} else if let Some(intersection) = geometry.collide_moving_point_with_track(&self.position, &total_movement) {
 					let used_percent = (intersection - self.position).length() / total_movement.length();
 					self.position = intersection;
@@ -259,10 +256,8 @@ impl Player {
 					self.kick_start_velocity.y = 0.0;
 					self.track_input_used = true;
 					self.on_track = true;
-					log("Slid to track!");
 				}
 			} else {
-				log("Falling off track!");
 				self.track_input_used = true;
 				self.on_track = false;
 			}
