@@ -41,7 +41,7 @@ impl Mat4 {
 
 	/// Rotates the matrix about the z axis by some amount.
 	/// Makes this rotation happen before the current transform stored in this matrix.
-	pub fn rotz_before(&mut self, radians : f32) {
+	pub fn rotz_before(&mut self, radians : f32) -> &mut Self {
 		let sin = radians.sin();
 		let cos = radians.cos();
 		let mut x;
@@ -61,14 +61,16 @@ impl Mat4 {
 		x = self.data[12] * cos + self.data[13] * sin;
 		y = self.data[12] *-sin + self.data[13] * cos;
 		    self.data[12] = x;    self.data[13] = y;
+		self
 	}
 
 	/// Rescales the matrix using the given vector's values.
-	pub fn scale_before(&mut self, factor : &Vec3) {
+	pub fn scale_before(&mut self, factor : &Vec3) -> &mut Self {
 		self.data[ 0] *= factor.x; self.data[ 1] *= factor.y; self.data[ 2] *= factor.z;
 		self.data[ 4] *= factor.x; self.data[ 5] *= factor.y; self.data[ 6] *= factor.z;
 		self.data[ 8] *= factor.x; self.data[ 9] *= factor.y; self.data[10] *= factor.z;
 		self.data[12] *= factor.x; self.data[13] *= factor.y; self.data[14] *= factor.z;
+		self
 	}
 
 	/// Creates a vec<DrawCoord> suitable for WebGL to process. (So it transposes the matrix.)

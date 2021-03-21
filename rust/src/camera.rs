@@ -24,10 +24,16 @@ impl Camera {
 		self.screen_width = width;
 		self.screen_height = height;
 		let mut display = Mat4::new();
+		let tx = if 1 == width  % 2 { -0.5 } else { 0.0 };
+		let ty = if 1 == height % 2 { -0.5 } else { 0.0 };
 		display.scale_before(&Vec3::new(
-			1.0 / ((width as f32)  / 2.0).floor(),
-			1.0 / ((height as f32) / 2.0).ceil(),
+			1.0 / ((width as f32)  / 2.0),
+			1.0 / ((height as f32) / 2.0),
 			1.0,
+		)).translate_before(&Vec3::new( // Keep things pixel perfect even with odd widths/heights.
+			tx,
+			ty,
+			0.0,
 		));
 		setDisplayTransform(display.export());
 	}
