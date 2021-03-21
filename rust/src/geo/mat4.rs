@@ -1,3 +1,5 @@
+use auto_ops::impl_op_ex;
+
 use crate::externals::*;
 use super::vec3::*;
 
@@ -81,5 +83,30 @@ impl Mat4 {
 			self.data[2], self.data[6], self.data[10], self.data[14],
 			self.data[3], self.data[7], self.data[11], self.data[15],
 		)
+	}
+}
+
+impl_op_ex!(* |left: &Mat4, right: &Vec3| -> Vec3 {
+	Vec3{
+		x: right.x * left.data[ 0] + right.y * left.data[ 1] + right.z * left.data[ 2] + left.data[ 3],
+		y: right.x * left.data[ 4] + right.y * left.data[ 5] + right.z * left.data[ 6] + left.data[ 7],
+		z: right.x * left.data[ 8] + right.y * left.data[ 9] + right.z * left.data[10] + left.data[11],
+	}
+});
+
+
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn test_translation() {
+		let mut mat = Mat4::new();
+		mat.translate_before(&Vec3::new(1.0, 2.0, -3.0));
+		let result = mat * Vec3::new(5.0, 3.0, 1.0);
+		assert_eq!(result.x, 6.0);
+		assert_eq!(result.y, 5.0);
+		assert_eq!(result.z,-2.0);
 	}
 }

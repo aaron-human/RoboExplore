@@ -105,6 +105,7 @@ impl Game {
 		self.elapsed += elapsed_seconds;
 
 		self.player.update(self.elapsed, elapsed_seconds, &self.keyboard, &self.gamepad, &self.collision, &self.tiled_geometry);
+		self.camera.track_position(&self.player.position);
 	}
 
 	pub fn on_resize(&mut self, width : u32, height : u32) {

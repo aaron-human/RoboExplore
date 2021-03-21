@@ -54,6 +54,7 @@ impl ops::MulAssign<DrawCoord> for Vec3 {
 
 impl_op_ex!(+ |left: &Vec3, right: &Vec3| -> Vec3 { Vec3{ x: left.x + right.x, y: left.y + right.y, z: left.z + right.z } } );
 impl_op_ex!(- |left: &Vec3, right: &Vec3| -> Vec3 { Vec3{ x: left.x - right.x, y: left.y - right.y, z: left.z - right.z } } );
-impl_op!(+= |left: &mut Vec3, right: Vec3| { left.x += right.x; left.y += right.y; } );
+impl_op_ex!(* |left: &Vec3, right: f32|   -> Vec3 { Vec3{ x: left.x * right,   y: left.y * right,   z: left.z * right } } );
+impl_op!(+= |left: &mut Vec3, right:  Vec3| { left.x += right.x; left.y += right.y; } );
 impl_op!(+= |left: &mut Vec3, right: &Vec3| { left.x += right.x; left.y += right.y; } );
 impl_op_ex!(-= |left: &mut Vec3, right: Vec3| { left.x -= right.x; left.y -= right.y; } );
