@@ -29,8 +29,15 @@
 * Or perhaps a few of the creators thought it would be cool to turn this decommissioned rock into an experiment for robot sapience. And they left challenges so that the robots to eventually could broadcast that they were "alive".
 * The setting is a giant ship that acted like a space station for a while. It's core systems have basically unlimited power. It regularly mines asteroids near by for more materials. Functionally it could keep going forever, assuming it's robotic inhabitants don't destroy each other first.
 	* Or maybe there's some sort of crisis that's threatening the eternal nature of the station.
+	* Not sure I like this, it would mean that there couldn't be wide-open areas (useable space is a precious commodity in any ship).
+	* Perhaps the main advantage of this is that it makes existance feel hostile; without continual repair the ship would eventually be destroyed by asteroids/etc. The ship, itself, struggles to survive.
+	* It could also make for some neat no-gravity levels. Perhaps have one level where the first half is getting to the gravity machine, and the second half is exploring the area with gravity.
 * Maybe explore compartmentalization as a **theme**? Some robots just know their specific tasks, and little else.
 * Some locations are completely obsolete (waste management when there's no one pooping). Repurposed?
+* Another **theme**: automation. Have frequent dumb robots running basic tasks. They're an implicit foil for the main character, who has a will.
+* Maybe make the setting a colony on the planet? The core systems were designed to maintain and expand the colony automatically. The creators had mechanical colony "seed ships" that would land on a planet and immediately begin building a space for them to live in. It'd take years, but eventually the colony foundations would be pre-built for them.
+	* And this ship is one that's been abandoned. Not because it's bad, just because it's no longer a needed pit-stop.
+	* Could have some later levels in a derelict space station above the planet? That'd be neat.
 ---
 * Perhaps have **several crises** that the world has gone through. And you're just seeing the latest?
 * Maybe the creators aren't human?
