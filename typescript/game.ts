@@ -15,6 +15,9 @@ namespace ExampleProject {
 		/// Manages loading Tiled files.
 		private readonly _tiled : TiledFileLoader = new TiledFileLoader();
 
+		/// The WASM function to call whenever things resize.
+		private _resizeCallback : (width : number, height : number) => void = null;
+
 		/// Creates a minimal Game instance.
 		constructor() {
 			// Note: This is run before the document is fully loaded. So can't rely on it being available yet...
@@ -70,7 +73,8 @@ namespace ExampleProject {
 
 			// Must do this AFTER the above setup() function is run (as it causes the on_resize to be called).
 			// Must also be set after this._display is setup.
-			this._display.resizeCallback = wasm_bindgen.on_resize;
+			this._resizeCallback = wasm_bindgen.on_resize;
+			this._display.resizeCallback = this._onResize.bind(this);
 			this._input.setup(
 				wasm_bindgen.on_key_down,
 				wasm_bindgen.on_key_up,
@@ -85,6 +89,12 @@ namespace ExampleProject {
 		/// An example exported method.
 		public exportExample(value : number) {
 			console.log(`WASM requested that this print ${value}`);
+		}
+
+		/// Handles resizing.
+		private _onResize(width : number, height : number) {
+			this._resizeCallback(width, height);
+			this._draw(); // Draw immediately to prevent flickering.
 		}
 
 		/**
