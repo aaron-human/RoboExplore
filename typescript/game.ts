@@ -64,6 +64,7 @@ namespace ExampleProject {
 				wasm_bindgen.tiled_generate_add_tile,
 				wasm_bindgen.tiled_generate_add_tile_boolean_property,
 				wasm_bindgen.tiled_generate_add_tile_collision_rectangle,
+				wasm_bindgen.tiled_generate_add_tile_collision_polygon,
 				wasm_bindgen.tiled_generate_add_point,
 				wasm_bindgen.tiled_generate_add_tile_layer,
 				wasm_bindgen.tiled_generation_done,

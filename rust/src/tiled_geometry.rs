@@ -17,6 +17,8 @@ pub struct TiledGeometry {
 	tracks : Vec<Bounds2>,
 	/// The rectangles to collide with.
 	collision_rects : Vec<Bounds2>,
+	/// The polygons to collide with.
+	collision_polygons : Vec<Vec<Vec2>>,
 	/// A debugging buffer to show all the geometry with.
 	pub debug_buffer : DisplayBuffer,
 }
@@ -26,6 +28,7 @@ impl TiledGeometry {
 		TiledGeometry {
 			tracks : Vec::new(),
 			collision_rects : Vec::new(),
+			collision_polygons : Vec::new(),
 			debug_buffer : DisplayBuffer::new(DisplayBufferType::LINES),
 		}
 	}
@@ -33,6 +36,11 @@ impl TiledGeometry {
 	/// The collision rectangle geometry.
 	pub fn get_collision_rects<'a>(&'a self) -> &'a Vec<Bounds2> {
 		&self.collision_rects
+	}
+
+	/// The collision polygon geometry.
+	pub fn get_collision_polygons<'a>(&'a self) -> &'a Vec<Vec<Vec2>> {
+		&self.collision_polygons
 	}
 
 	/// Finds the closest point inside the tracts.
@@ -99,6 +107,15 @@ impl TiledGeometry {
 							self.tracks.push(final_copy);
 						}
 					}
+					for polygon in tile.get_collision_polygons() {
+						if "collision" == polygon.r#type {
+							let mut final_copy = Vec::with_capacity(polygon.points.len());
+							for point in &polygon.points {
+								final_copy.push(point + tile_offset);
+							}
+							self.collision_polygons.push(final_copy);
+						}
+					}
 					for property in tile.get_boolean_properties() {
 						if "solid" == property.name && property.value {
 							self.collision_rects.push(Bounds2::from_points(
@@ -114,7 +131,7 @@ impl TiledGeometry {
 		self.collision_rects = simplify_rects(&mut self.collision_rects);
 		self.tracks = simplify_rects(&mut self.tracks);
 		// For debugging: draw all the rectangles.
-		if false {
+		if true {
 			let mut editor = self.debug_buffer.make_editor();
 			editor.clear();
 			{
@@ -128,6 +145,16 @@ impl TiledGeometry {
 							Vec3::new(rect.x_max(), rect.y_max(), z),
 							Vec3::new(rect.x_min(), rect.y_max(), z),
 						],
+						&color,
+					);
+				}
+				for polygon in &self.collision_polygons {
+					let mut points : Vec<Vec3> = Vec::with_capacity(polygon.len());
+					for source in polygon {
+						points.push(Vec3::new(source.x, source.y, z));
+					}
+					editor.add_polygon(
+						&points,
 						&color,
 					);
 				}

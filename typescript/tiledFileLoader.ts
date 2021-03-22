@@ -14,6 +14,14 @@ namespace ExampleProject {
 		public y2 : number = 0;
 	}
 
+	/// A class for storing a collision polygon (for a tile).
+	class _CollisionPolygon {
+		/// The type.
+		public type : string = "";
+		/// The x and y values of the polygon.
+		public values : number[] = [];
+	}
+
 	/// A class for storing a boolean property.
 	class _BooleanProperty {
 		constructor(public name : string, public value : boolean) {
@@ -37,11 +45,14 @@ namespace ExampleProject {
 		public properties : _BooleanProperty[] = []; // TODO: Add more property types.
 		/// The collision rectangle info.
 		public collisionRectangles : _CollisionRect[] = [];
+		/// The collision polygon info.
+		public collisionPolygons : _CollisionPolygon[] = [];
 	}
 
 	type AddTileFunc = (url : string, imageUrl : string, x : number, y : number, width : number, height : number) => void;
 	type AddTileBooleanPropertyFunc = (url : string, name : string, value : boolean) => void;
 	type AddTileCollisionRectangleFunc = (url : string, type : string, x1 : number, y1 : number, x2 : number, y2 : number) => void;
+	type AddTileCollisionPolygonFunc = (url : string, type : string, values : Float32Array) => void;
 	type AddTilePointFunc = (url : string, name : string, x : number, y : number) => void;
 	type AddTileLayerFunc = (url : string, name : string, xOffset : number, yOffset : number, width : number, height : number, pixelWidth : number, pixelHeight : number, data : Uint32Array) => void;
 	type OnDoneFunc = (url : string) => void;
@@ -53,15 +64,17 @@ namespace ExampleProject {
 		private _addTile : AddTileFunc = null;
 		private _addTileBooleanProperty : AddTileBooleanPropertyFunc = null;
 		private _addTileCollisionRectangle : AddTileCollisionRectangleFunc = null;
+		private _addTileCollisionPolygon : AddTileCollisionPolygonFunc = null;
 		private _addPoint : AddTilePointFunc = null;
 		private _addTileLayer : AddTileLayerFunc = null;
 		private _onDone : OnDoneFunc = null;
 
 		/// Stores callbacks useful for loading tile info.
-		public setup(addTile : AddTileFunc, addTileBooleanProperty : AddTileBooleanPropertyFunc, addTileCollisionRectangle : AddTileCollisionRectangleFunc, addPoint : AddTilePointFunc, addTileLayer : AddTileLayerFunc, onDone : OnDoneFunc) {
+		public setup(addTile : AddTileFunc, addTileBooleanProperty : AddTileBooleanPropertyFunc, addTileCollisionRectangle : AddTileCollisionRectangleFunc, addTileCollisionPolygon : AddTileCollisionPolygonFunc, addPoint : AddTilePointFunc, addTileLayer : AddTileLayerFunc, onDone : OnDoneFunc) {
 			this._addTile = addTile;
 			this._addTileBooleanProperty = addTileBooleanProperty;
 			this._addTileCollisionRectangle = addTileCollisionRectangle;
+			this._addTileCollisionPolygon = addTileCollisionPolygon;
 			this._addPoint = addPoint;
 			this._addTileLayer = addTileLayer;
 			this._onDone = onDone;
@@ -152,13 +165,36 @@ namespace ExampleProject {
 								if (undefined === width) { continue; }
 								const height = collision["height"];
 								if (undefined === height) { continue; }
-								const rectangle = new _CollisionRect();
-								rectangle.type = type;
-								rectangle.x1 = x;
-								rectangle.y1 = tileInfo.height - y;
-								rectangle.x2 = x + width;
-								rectangle.y2 = tileInfo.height - (y + height);
-								tileInfo.collisionRectangles.push(rectangle);
+
+								const polygonPoints : any[] = collision["polygon"];
+								if (undefined !== polygonPoints) {
+									// Then it's a collision polygon.
+									const polygon = new _CollisionPolygon();
+									polygon.type = type;
+									let broken = false;
+									for(let point of polygonPoints) {
+										const point_x = point["x"];
+										if (undefined === point_x) { broken = true; break; }
+										const point_y = point["y"];
+										if (undefined === point_y) { broken = true; break; }
+										polygon.values.push(
+											x + point_x,
+											tileInfo.height - (y + point_y),
+										);
+									}
+									if (!broken) {
+										tileInfo.collisionPolygons.push(polygon);
+									}
+								} else {
+									// Otherwise it's a rectangle.
+									const rectangle = new _CollisionRect();
+									rectangle.type = type;
+									rectangle.x1 = x;
+									rectangle.y1 = tileInfo.height - y;
+									rectangle.x2 = x + width;
+									rectangle.y2 = tileInfo.height - (y + height);
+									tileInfo.collisionRectangles.push(rectangle);
+								}
 							}
 						}
 						tileIdToInfo.set(id, tileInfo);
@@ -185,6 +221,13 @@ namespace ExampleProject {
 							rectangle.y1,
 							rectangle.x2,
 							rectangle.y2,
+						);
+					}
+					for (let polygon of info.collisionPolygons) {
+						this._addTileCollisionPolygon(
+							sourceUrl,
+							polygon.type,
+							new Float32Array(polygon.values),
 						);
 					}
 				}

@@ -97,6 +97,16 @@ impl Game {
 				&Vec2::new(rect.x_max(), rect.y_max()),
 			)));
 		}
+		for polygon in self.tiled_geometry.get_collision_polygons() {
+			for index in 0..polygon.len() {
+				let mut next_index = index+1;
+				if next_index >= polygon.len() { next_index = 0; }
+				self.collision.add_obstacle(CircleObstacle::LineSegment(LineSegment::new(
+					&polygon[index],
+					&polygon[next_index],
+				)));
+			}
+		}
 
 		self.player.gravity_acceleration.y = -800.0;
 	}

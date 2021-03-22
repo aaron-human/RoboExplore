@@ -113,6 +113,8 @@ pub struct TiledTile {
 	boolean_properties : Vec<TiledBoolProp>,
 	/// The collision geometry.
 	collision_rects : Vec<TiledRect>,
+	/// The collision polygons.
+	collision_polygons : Vec<TiledPolygon>,
 }
 
 impl TiledTile {
@@ -139,6 +141,11 @@ impl TiledTile {
 	/// Gets the collision rectangles from this specific tile.
 	pub fn get_collision_rectangles<'a>(&'a self) -> &'a Vec<TiledRect> {
 		&self.collision_rects
+	}
+
+	/// Gets the collision polygons for this specific tile.
+	pub fn get_collision_polygons<'a>(&'a self) -> &'a Vec<TiledPolygon> {
+		&self.collision_polygons
 	}
 }
 
@@ -217,6 +224,14 @@ pub struct TiledRect {
 	pub r#type : String,
 	/// The position.
 	pub position : Bounds2,
+}
+
+/// A structure for storing a polygon from Tiled.
+pub struct TiledPolygon {
+	/// The type.
+	pub r#type : String,
+	/// The points making up the polygon.
+	pub points : Vec<Vec2>,
 }
 
 /// A structure for storing boolean properties in Tiled.
@@ -343,6 +358,7 @@ pub fn tiled_generate_add_tile(file_url : String, image_url : String, x : u16, y
 		size: Vec2::new(width as f32, height as f32),
 		boolean_properties : Vec::new(),
 		collision_rects : Vec::new(),
+		collision_polygons : Vec::new(),
 	});
 }
 
@@ -371,6 +387,23 @@ pub fn tiled_generate_add_tile_collision_rectangle(file_url : String, type_ : St
 				&Vec2::new(x1, y1),
 				&Vec2::new(x2, y2),
 			),
+		}
+	);
+}
+
+/// Called to add a collision polygon to the latest tile that was added.
+///
+/// This should only be called by external JavaScript code!
+#[wasm_bindgen]
+pub fn tiled_generate_add_tile_collision_polygon(file_url : String, type_ : String, values : Vec<f32>) {
+	let mut points : Vec<Vec2> = Vec::new();
+	for index in (0..values.len()).step_by(2) {
+		points.push(Vec2::new(values[index], values[index+1]));
+	}
+	get_tiled_generator().borrow_file(&file_url).tiles.last_mut().unwrap().collision_polygons.push(
+		TiledPolygon{
+			r#type: type_,
+			points,
 		}
 	);
 }
