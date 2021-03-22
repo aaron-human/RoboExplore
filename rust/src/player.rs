@@ -53,6 +53,8 @@ pub struct Player {
 	/// Whether was on ground last update.
 	on_ground : bool,
 
+	/// The velocity due to jumping.
+	jump_velocity : Vec2,
 	/// The time when the current jump started. Negative means no jump.
 	jump_start_time : f32,
 	/// The starting height of the current jump.
@@ -100,6 +102,7 @@ impl Player {
 			gravity_velocity : Vec2::new(0.0, 0.0),
 			on_ground : false,
 
+			jump_velocity : Vec2::new(0.0, 0.0),
 			jump_start_time : -1.0,
 			jump_start_height : 0.0,
 			jump_done : true,
@@ -114,8 +117,8 @@ impl Player {
 	}
 
 	/// Calculate the needed velocity to get to some height given the current height and vertical velocity.
-	fn calc_jump_velocity(&self, current_height : f32, target_height : f32) -> f32 {
-		(2.0 * self.gravity_acceleration.length() * (current_height - target_height)).abs().sqrt()
+	fn calc_jump_velocity(&self, target_height : f32) -> f32 {
+		(2.0 * self.gravity_acceleration.length() * target_height).abs().sqrt()
 	}
 
 	/// The fuction that updates the player's position and movement.
@@ -164,30 +167,37 @@ impl Player {
 		let gravity_direction = self.gravity_acceleration.norm();
 		let jump_pressed = gamepad.is_down(Button::A) || keyboard.is_down(Key::UP);
 		if jump_pressed && gravity_active {
-			let height = self.position.dot(&gravity_direction);
+			let height = -self.position.dot(gravity_direction);
 			if self.on_ground && !self.jump_input_used {
 				// Start jumping.
-				self.gravity_velocity = gravity_direction.set_length(-self.calc_jump_velocity(0.0, MIN_JUMP_HEIGHT));
+				// Start by killing off gravity, so it doesn't start "ahead" an iteration.
+				self.gravity_velocity.x = 0.0;
+				self.gravity_velocity.y = 0.0;
+
+				self.jump_velocity = gravity_direction.set_length(-self.calc_jump_velocity(MIN_JUMP_HEIGHT));
 				self.jump_start_time = current_time;
 				self.jump_start_height = height;
 				self.jump_done = false;
 				self.jump_input_used = true;
-			} else if 0.0 < self.jump_start_time && !self.jump_done { // TODO? Remove jump_start_time check?
+			} else if !self.jump_done {
 				let jump_elapsed_time : f32 = current_time - self.jump_start_time;
 				if jump_elapsed_time < MAX_JUMP_TIME {
 					// Then continue to push the jump up.
 					let jump_percent : f32 = 1.0_f32.min(jump_elapsed_time / MAX_JUMP_TIME);
 					let target_jump_height = jump_percent * (MAX_JUMP_HEIGHT - MIN_JUMP_HEIGHT) + MIN_JUMP_HEIGHT;
-					let target_velocity = self.calc_jump_velocity(
-						(height - self.jump_start_height).abs(),
-						target_jump_height,
-					);
-					self.gravity_velocity = gravity_direction.set_length(-target_velocity);
+					// Because some integration has already occurred with a lower target jump height, must "correct" against that.
+					// Do so by increasing the desired height depending on how far the current height is from where it would be if had started with the "right" velocity to hit the current target_jump_height.
+					let current_height = height - self.jump_start_height;
+					let ideal_current_height = self.calc_jump_velocity(target_jump_height) * jump_elapsed_time - 0.5 * self.gravity_acceleration.length() * jump_elapsed_time * jump_elapsed_time;
+					let height_correction = 0.0f32.max(ideal_current_height - current_height);
+					// Then setup the jump value.
+					self.jump_velocity = gravity_direction.set_length(-self.calc_jump_velocity(target_jump_height + height_correction));
 				}
 			}
 		}
 		if !jump_pressed {
 			self.jump_start_time = -1.0;
+			self.jump_start_height = 0.0;
 			self.jump_done = true;
 			self.jump_input_used = false;
 		}
@@ -223,7 +233,7 @@ impl Player {
 		};
 
 		// Now calculate the projected movement.
-		let mut total_movement = (self.gravity_velocity + kick_velocity) * elapsed_seconds;
+		let mut total_movement = (self.gravity_velocity + self.jump_velocity + kick_velocity) * elapsed_seconds;
 		total_movement.x += input_movement.x;
 		if self.on_track {
 			total_movement.y += input_movement.y;
@@ -242,6 +252,8 @@ impl Player {
 					total_movement.y = 0.0;
 					self.gravity_velocity.x = 0.0;
 					self.gravity_velocity.y = 0.0;
+					self.jump_velocity.x = 0.0;
+					self.jump_velocity.y = 0.0;
 					self.kick_start_velocity.x = 0.0;
 					self.kick_start_velocity.y = 0.0;
 					self.track_input_used = true;
@@ -252,6 +264,8 @@ impl Player {
 					total_movement *= 1.0 - used_percent;
 					self.gravity_velocity.x = 0.0;
 					self.gravity_velocity.y = 0.0;
+					self.jump_velocity.x = 0.0;
+					self.jump_velocity.y = 0.0;
 					self.kick_start_velocity.x = 0.0;
 					self.kick_start_velocity.y = 0.0;
 					self.track_input_used = true;
@@ -301,12 +315,16 @@ impl Player {
 				if self.on_ground {
 					self.gravity_velocity.x = 0.0;
 					self.gravity_velocity.y = 0.0;
+					self.jump_velocity.x = 0.0;
+					self.jump_velocity.y = 0.0;
 					self.kick_start_velocity.x = 0.0;
 					self.kick_start_velocity.y = 0.0;
 				}
 				if hit_ceiling {
-					self.gravity_velocity.x = 0.0;
+					self.gravity_velocity.x = 0.0; // Might remove this part?
 					self.gravity_velocity.y = 0.0;
+					self.jump_velocity.x = 0.0;
+					self.jump_velocity.y = 0.0;
 					self.kick_start_velocity.y = 0.0;
 					self.jump_done = true;
 				}
