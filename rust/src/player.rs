@@ -3,6 +3,7 @@ use crate::geo::mat4::Mat4;
 use crate::geo::vec2::*;
 use crate::geo::vec3::Vec3;
 use crate::geo::consts::EPSILON;
+use crate::geo::collider::limit_movement_with_normals;
 
 use crate::externals::log;
 
@@ -13,6 +14,10 @@ use crate::keyboard::*;
 use crate::gamepad::*;
 use crate::tiled_geometry::TiledGeometry;
 
+/// The max number of physics iterations the player.
+const PHYSICS_ITERATION_MAX : usize = 5;
+
+/// The radius of the player's (circle) collider.
 const PLAYER_RADIUS : f32 = 8.0;
 /// How fast the player moves in pixels per second.
 const PLAYER_SPEED : f32 = 120.0;
@@ -124,6 +129,8 @@ impl Player {
 	/// The fuction that updates the player's position and movement.
 	pub fn update(&mut self, current_time : f32, elapsed_seconds : f32, keyboard : &Keyboard, gamepad : &Gamepad, collision : &CollisionSystem, geometry : &TiledGeometry) {
 
+		let debug = keyboard.is_down(Key::DEBUG);
+
 		let gravity_active = EPSILON < self.gravity_acceleration.length() && !self.on_track;
 
 		// Handle the player's inputs.
@@ -232,87 +239,65 @@ impl Player {
 			}
 		};
 
-		// Now calculate the projected movement.
-		let mut total_movement = (self.gravity_velocity + self.jump_velocity + kick_velocity) * elapsed_seconds;
-		total_movement.x += input_movement.x;
-		if self.on_track {
-			total_movement.y += input_movement.y;
-		}
-
-		// If the player is trying to snap, then try to collide the movement with tracks to see if can snap.
-		// Also check if the starting position is just close enough.
+		// Now repeatedly alternate between collision detection and responding by modifying forces.
 		let track_pressed = gamepad.is_down(Button::R) || keyboard.is_down(Key::SPACE);
-		if track_pressed && !self.track_input_used {
-			if !self.on_track {
-				// Try snapping if possible.
-				let closest = geometry.get_closest_track_point(&self.position);
-				if MAX_TRACK_SNAP_DISTANCE >= (closest - self.position).length() {
-					self.position = closest;
-					total_movement.x = 0.0;
-					total_movement.y = 0.0;
-					self.gravity_velocity.x = 0.0;
-					self.gravity_velocity.y = 0.0;
-					self.jump_velocity.x = 0.0;
-					self.jump_velocity.y = 0.0;
-					self.kick_start_velocity.x = 0.0;
-					self.kick_start_velocity.y = 0.0;
-					self.track_input_used = true;
-					self.on_track = true;
-				} else if let Some(intersection) = geometry.collide_moving_point_with_track(&self.position, &total_movement) {
-					let used_percent = (intersection - self.position).length() / total_movement.length();
-					self.position = intersection;
-					total_movement *= 1.0 - used_percent;
-					self.gravity_velocity.x = 0.0;
-					self.gravity_velocity.y = 0.0;
-					self.jump_velocity.x = 0.0;
-					self.jump_velocity.y = 0.0;
-					self.kick_start_velocity.x = 0.0;
-					self.kick_start_velocity.y = 0.0;
-					self.track_input_used = true;
-					self.on_track = true;
-				}
-			} else {
-				self.track_input_used = true;
-				self.on_track = false;
+		let mut remainder_percent = 1.0;
+		let mut normals : Vec<Vec2> = Vec::new();
+		for _iteration in 0..PHYSICS_ITERATION_MAX {
+			// First calculate the projected movement.
+			let mut total_movement = (self.gravity_velocity + self.jump_velocity + kick_velocity) * elapsed_seconds;
+			total_movement.x += input_movement.x;
+			if self.on_track {
+				total_movement.y += input_movement.y;
 			}
-		}
-		if !track_pressed {
-			self.track_input_used = false;
-		}
-		// Then limit movement if on a track.
-		if self.on_track {
-			// TODO? Could make sure didn't "jump a gap" here?
-			let updated_end = geometry.get_closest_track_point(&(self.position + total_movement));
-			total_movement = updated_end - self.position;
-		}
+			total_movement *= remainder_percent;
+			if debug { log(&format!("total_movement: {:?}", total_movement)); }
 
-		// If there is any movement left, then see how that movement works out with collision.
-		if EPSILON < total_movement.length() {
-			// Get collision information.
-			let collisions = collision.collide_circle(
+			// Remove any movement that goes against a surface normal from the previous iteration.
+			total_movement = limit_movement_with_normals(&total_movement, &normals);
+			normals.clear();
+			if debug { log(&format!("total_movement after normals: {:?}", total_movement)); }
+
+			// Give up early if (basically) no movement left.
+			if EPSILON > total_movement.length() {
+				break;
+			}
+
+			// Check how that works with collision.
+			let maybe_collision = collision.collide_circle_step(
 				&self.position,
 				PLAYER_RADIUS,
 				&total_movement,
 			);
+			if debug { log(&format!("collision: {:?}", maybe_collision)); }
 
-			// Stop gravity if on the ground. Also stop a jump if hit a ceiling.
-			{
+			// If there is a collision, interact with it.
+			let mut safe_movement = total_movement.clone();
+			if let Some(collision) = &maybe_collision {
+				let safe_percent = 0.0f32.max(collision.deflections[0].times.min().unwrap());
+				if debug { log(&format!("Safe percent: {}", safe_percent)); }
+				safe_movement *= safe_percent;
+				remainder_percent *= 1.0 - safe_percent;
+
+				// Save the normals.
+				normals = collision.normals.clone();
+
+				// See how the collision might update the on_ground and hit_ceiling flags.
 				self.on_ground = false;
 				let mut hit_ceiling = false;
 				let threshold = -0.65 * self.gravity_acceleration.length();
 				// Threshold is below "sqrt(2) / 2" (0.7071) so can handle anything within 45 degrees.
-				for collision in &collisions {
-					for deflection in &collision.deflections {
-						let coincidence = deflection.normal.dot(self.gravity_acceleration);
-						if threshold > coincidence {
-							self.on_ground = true;
-						}
-						if -threshold < coincidence {
-							hit_ceiling = true;
-						}
+				for deflection in &collision.deflections {
+					let coincidence = deflection.normal.dot(self.gravity_acceleration);
+					if threshold > coincidence {
+						self.on_ground = true;
+					}
+					if -threshold < coincidence {
+						hit_ceiling = true;
 					}
 				}
 				if self.on_ground {
+					if debug { log("On ground!"); }
 					self.gravity_velocity.x = 0.0;
 					self.gravity_velocity.y = 0.0;
 					self.jump_velocity.x = 0.0;
@@ -330,31 +315,80 @@ impl Player {
 				}
 			}
 
-			// Handle moving with collision.
-			let mut final_delta = total_movement;
-			if let Some(collision) = collisions.last() {
-				final_delta = collision.final_position - self.position;
-				self.position = collision.final_position;
-			} else {
-				self.position += total_movement;
+			// If the player is trying to snap, then try to collide any safe movement with tracks to see if can snap.
+			// Also check if the starting position is just close enough.
+			if track_pressed && !self.track_input_used {
+				if !self.on_track {
+					// Try snapping if possible.
+					let closest = geometry.get_closest_track_point(&self.position);
+					if MAX_TRACK_SNAP_DISTANCE >= (closest - self.position).length() {
+						self.position = closest;
+						self.gravity_velocity.x = 0.0;
+						self.gravity_velocity.y = 0.0;
+						self.jump_velocity.x = 0.0;
+						self.jump_velocity.y = 0.0;
+						self.kick_start_velocity.x = 0.0;
+						self.kick_start_velocity.y = 0.0;
+						self.track_input_used = true;
+						self.on_track = true;
+						break; // Ignore any movement after that.
+					} else if let Some(intersection) = geometry.collide_moving_point_with_track(&self.position, &safe_movement) {
+						let used_percent = (intersection - self.position).length() / safe_movement.length();
+						self.position = intersection;
+						safe_movement *= 1.0 - used_percent;
+						self.gravity_velocity.x = 0.0;
+						self.gravity_velocity.y = 0.0;
+						self.jump_velocity.x = 0.0;
+						self.jump_velocity.y = 0.0;
+						self.kick_start_velocity.x = 0.0;
+						self.kick_start_velocity.y = 0.0;
+						self.track_input_used = true;
+						self.on_track = true;
+						// Don't break, allow any remaining movement to be worked out.
+					}
+				} else {
+					self.track_input_used = true;
+					self.on_track = false;
+				}
+			}
+			if !track_pressed {
+				self.track_input_used = false;
+			}
+			// Then limit movement if on a track.
+			if self.on_track {
+				// TODO? Could make sure didn't "jump a gap" here?
+				let updated_end = geometry.get_closest_track_point(&(self.position + safe_movement));
+				safe_movement = updated_end - self.position;
 			}
 
-			if 0.0 > final_delta.x {
+			// Handle moving with collision.
+			self.position += safe_movement;
+
+			if 0.0 > safe_movement.x {
 				self.aiming_right = false;
 			}
-			if 0.0 < final_delta.x {
+			if 0.0 < safe_movement.x {
 				self.aiming_right = true;
 			}
 
-			// Store the new position.
-			{
-				let mut transform = Mat4::new();
-				transform.translate_before(&Vec3::new(self.position.x, self.position.y, 0.0));
-				if !self.aiming_right {
-					transform.scale_before(&Vec3::new(-1.0, 1.0, 1.0));
-				}
-				self.display.set_transform(&transform);
+			// If no collision happened, then this is done.
+			if maybe_collision.is_none() {
+				break;
 			}
+
+			if PHYSICS_ITERATION_MAX-1 == _iteration {
+				log("Hit player physics iteration max!");
+			}
+		}
+
+		// Store the new position.
+		{
+			let mut transform = Mat4::new();
+			transform.translate_before(&Vec3::new(self.position.x, self.position.y, 0.0));
+			if !self.aiming_right {
+				transform.scale_before(&Vec3::new(-1.0, 1.0, 1.0));
+			}
+			self.display.set_transform(&transform);
 		}
 	}
 }

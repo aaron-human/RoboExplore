@@ -11,6 +11,7 @@ pub enum Key {
 	DOWN,
 	RIGHT,
 	SPACE,
+	DEBUG,
 	COUNT, // Not a key. Just here to count how many exist.
 }
 
@@ -46,12 +47,14 @@ impl Keyboard {
 		instance.bind(String::from("Down"),  Key::DOWN);
 		instance.bind(String::from("Right"), Key::RIGHT);
 		// Allow WASD too.
-		instance.bind(String::from("w"),    Key::UP);
-		instance.bind(String::from("a"),  Key::LEFT);
-		instance.bind(String::from("s"),  Key::DOWN);
+		instance.bind(String::from("w"), Key::UP);
+		instance.bind(String::from("a"), Key::LEFT);
+		instance.bind(String::from("s"), Key::DOWN);
 		instance.bind(String::from("d"), Key::RIGHT);
 
-		instance.bind(String::from(" "),    Key::SPACE);
+		instance.bind(String::from(" "), Key::SPACE);
+
+		instance.bind(String::from("~"), Key::DEBUG);
 		instance
 	}
 

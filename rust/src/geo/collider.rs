@@ -64,20 +64,49 @@ impl Deflection {
 			// At this point you've definitely hit and deflected.
 			println!("Deflected!");
 			self.deflected = true;
-			self.remainder += (&self.normal).scale(-coincidence);
+			self.remainder += (&self.normal).scale(-coincidence); // TODO: This is redundant with limit_movement_with_normals()!
 		}
 	}
 }
 
 /// The result of combining one or more Deflection()s together.
+#[derive(Debug)]
 pub struct TotalDeflection {
 	/// The final position of the collider after the collision.
 	pub final_position : Vec2,
+	/// All unique surface normals found at the point of collision.
+	pub normals : Vec<Vec2>,
 	/// All of the deflections that applied during the collision.
 	/// This includes ones that were in contact but didn't alter the movement.
 	///
 	/// The first is always the one that's considered **the** deflection that occurred.
 	pub deflections : Vec<Deflection>,
+}
+
+/// Limits the given input vector according to a set of normals passed in.
+pub fn limit_movement_with_normals(movement : &Vec2, normals : &Vec<Vec2>) -> Vec2 {
+	// Try limiting the remainder vector if there's more than one normal.
+	// Do this mainly by checking if there are normals on the left and right of the remaining movement. That means drop the remaining movement.
+	let mut on_pos : bool = false;
+	let mut on_neg : bool = false;
+	let mut result = movement.clone();
+	for normal in normals {
+		// Ignore if the normal is in the direction of movement.
+		// But don't ignore if it's perpendicular.
+		if movement.dot(normal) > EPSILON { continue; }
+		// Check which side it is on.
+		if 0.0 > movement.ext(normal) {
+			on_pos = true;
+		} else {
+			on_neg = true;
+		}
+		// Remove the normal from it.
+		result -= normal.scale(normal.dot(&result));
+		if (on_pos && on_neg) {// || (result.length() < EPSILON) {
+			return Vec2::new(0.0, 0.0);
+		}
+	}
+	result
 }
 
 impl TotalDeflection {
@@ -131,33 +160,19 @@ impl TotalDeflection {
 		});
 
 		// Always put the soonest_index first.
-		let mut remainder = deflection.remainder.clone();
+		let remainder = deflection.remainder.clone();
 		items.insert(0, deflection);
 
-		// Try limiting the remainder vector if there's more than one normal.
-		// Do this mainly by checking if there are normals on the left and right of the remaining movement. That means drop the remaining movement.
-		let mut on_pos : bool = false;
-		let mut on_neg : bool = false;
-		for normal in &normals {
-			// Ignore if the normal is in the direction of movement.
-			// But don't ignore if it's perpendicular.
-			if remainder.dot(normal) > EPSILON { continue; }
-			// Check which side it is on.
-			if 0.0 > remainder.ext(normal) {
-				on_pos = true;
-			} else {
-				on_neg = true;
-			}
-			if on_pos && on_neg {
-				(&mut remainder).scale(0.0);
-				break;
-			}
-		}
+		// Try limiting the remainder vector with the surface normal(s).
+		let final_remainder = limit_movement_with_normals(&remainder, &normals);
+
 		Some(TotalDeflection{
-			final_position: items[0].position + remainder,
+			final_position: items[0].position + final_remainder,
+			normals,
 			deflections: items,
 		})
 	}
+
 }
 
 #[cfg(test)]
@@ -264,7 +279,7 @@ mod test_combine_deflection {
 				normal: Vec2::new(-1.0, 0.0),
 				deflected: true,
 				position:  Vec2::zero(),
-				remainder: Vec2::new(1.0, 1.0),
+				remainder: Vec2::new(0.0, 1.0),
 				source: Index::from_raw_parts(0, 0),
 			},
 			Deflection {
@@ -272,13 +287,13 @@ mod test_combine_deflection {
 				normal: Vec2::new(-1.0, 0.0),
 				deflected: true,
 				position:  Vec2::zero(),
-				remainder: Vec2::new(1.0, 1.0),
+				remainder: Vec2::new(0.0, 1.0),
 				source: Index::from_raw_parts(0, 0),
 			},
 		]);
 		let result = maybe_result.unwrap();
 		let remainder = result.final_position - result.deflections[0].position;
-		assert_eq!(remainder.x, 1.0);
+		assert_eq!(remainder.x, 0.0);
 		assert_eq!(remainder.y, 1.0);
 	}
 
@@ -316,7 +331,7 @@ mod test_combine_deflection {
 				normal: Vec2::new(-1.0, 0.0),
 				deflected: true,
 				position:  Vec2::zero(),
-				remainder: Vec2::new(1.0, 1.0),
+				remainder: Vec2::new(0.0, 1.0),
 				source: Index::from_raw_parts(0, 0),
 			},
 			Deflection {
@@ -324,13 +339,13 @@ mod test_combine_deflection {
 				normal: Vec2::new(-1.0, 1.0),
 				deflected: true,
 				position:  Vec2::zero(),
-				remainder: Vec2::new(1.0, 1.0),
+				remainder: Vec2::new(0.0, 1.0),
 				source: Index::from_raw_parts(0, 0),
 			},
 		]);
 		let result = maybe_result.unwrap();
 		let remainder = result.final_position - result.deflections[0].position;
-		assert_eq!(remainder.x, 1.0);
+		assert_eq!(remainder.x, 0.0);
 		assert_eq!(remainder.y, 1.0);
 	}
 }

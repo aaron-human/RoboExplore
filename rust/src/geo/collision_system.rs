@@ -57,45 +57,49 @@ impl CollisionSystem {
 	}
 
 	/// Collides a circle with the stored collision geometry, and returns the updated movement vector.
-	pub fn collide_circle(&self, position : &Vec2, radius : f32, movement_ : &Vec2) -> Vec<TotalDeflection> {
+	pub fn collide_circle(&self, position_ : &Vec2, radius : f32, movement_ : &Vec2) -> Vec<TotalDeflection> {
 		let mut movement = movement_.clone();
-		let mut circle = Circle::new(position, radius);
+		let mut position = position_.clone();
 		let mut result : Vec<TotalDeflection> = Vec::new();
 		for _iteration in 0..COLLISION_ITERATION_MAX {
-			let mut hits : Vec<Deflection> = Vec::new();
-			for (index, generic_obstacle) in &self.obstacles {
-				if !generic_obstacle.active { continue; }
-				let maybe_deflection = match &generic_obstacle.geometry {
-					CircleObstacle::LineSegment(segment) => { (&circle).deflect_with(&movement, segment) },
-					CircleObstacle::Line(line)           => { (&circle).deflect_with(&movement, line) },
-					CircleObstacle::Point(position)      => { (&circle).deflect_with(&movement, position) },
-					CircleObstacle::Circle(obstacle) => {
-						let augmented = Circle::new(&circle.center, circle.radius + obstacle.radius);
-						(&augmented).deflect_with(&movement, &obstacle.center)
-					},
-				};
-				if let Some(mut deflection) = maybe_deflection {
-					deflection.source = index;
-					hits.push(deflection);
-				}
-			}
-
-			if let Some(total_deflection) = TotalDeflection::try_new(hits) {
-				println!("Collision: {:?} + {:?}", circle, movement);
+			if let Some(total_deflection) = self.collide_circle_step(&position, radius, &movement) {
 				let collision = &total_deflection.deflections[0];
-				circle.center = collision.position;
+				position = collision.position;
 				movement = total_deflection.final_position - collision.position;
 				result.push(total_deflection);
 				if movement.length() < EPSILON {
 					return result;
 				}
 			} else {
-				println!("No hit: {:?} + {:?}", circle, movement);
 				return result;
 			}
 		}
 		log("Hit collision iteration max!");
 		return result;
+	}
+
+	/// Perform one round of collision detection and send all the information to the caller.
+	pub fn collide_circle_step(&self, position : &Vec2, radius : f32, movement : &Vec2) -> Option<TotalDeflection> {
+		let circle = Circle::new(position, radius);
+		let mut hits : Vec<Deflection> = Vec::new();
+		for (index, generic_obstacle) in &self.obstacles {
+			if !generic_obstacle.active { continue; }
+			let maybe_deflection = match &generic_obstacle.geometry {
+				CircleObstacle::LineSegment(segment) => { (&circle).deflect_with(movement, segment) },
+				CircleObstacle::Line(line)           => { (&circle).deflect_with(movement, line) },
+				CircleObstacle::Point(position)      => { (&circle).deflect_with(movement, position) },
+				CircleObstacle::Circle(obstacle) => {
+					let augmented = Circle::new(&circle.center, circle.radius + obstacle.radius);
+					(&augmented).deflect_with(movement, &obstacle.center)
+				},
+			};
+			if let Some(mut deflection) = maybe_deflection {
+				deflection.source = index;
+				hits.push(deflection);
+			}
+		}
+
+		TotalDeflection::try_new(hits)
 	}
 }
 
