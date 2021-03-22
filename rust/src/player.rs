@@ -285,7 +285,8 @@ impl Player {
 			{
 				self.on_ground = false;
 				let mut hit_ceiling = false;
-				let threshold = -0.9 * self.gravity_acceleration.length();
+				let threshold = -0.65 * self.gravity_acceleration.length();
+				// Threshold is below "sqrt(2) / 2" (0.7071) so can handle anything within 45 degrees.
 				for collision in &collisions {
 					for deflection in &collision.deflections {
 						let coincidence = deflection.normal.dot(self.gravity_acceleration);
