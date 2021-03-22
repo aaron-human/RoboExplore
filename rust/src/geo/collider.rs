@@ -88,21 +88,34 @@ pub fn limit_movement_with_normals(movement : &Vec2, normals : &Vec<Vec2>) -> Ve
 	// Try limiting the remainder vector if there's more than one normal.
 	// Do this mainly by checking if there are normals on the left and right of the remaining movement. That means drop the remaining movement.
 	let mut on_pos : bool = false;
+	let mut pos_perp : bool = false;
 	let mut on_neg : bool = false;
+	let mut neg_perp : bool = false;
 	let mut result = movement.clone();
 	for normal in normals {
 		// Ignore if the normal is in the direction of movement.
-		// But don't ignore if it's perpendicular.
-		if movement.dot(normal) > EPSILON { continue; }
+		let coincidence = movement.dot(normal);
+		if coincidence > EPSILON { continue; } // TODO: This specific location forced EPSILON higher (to allow circles that exactly fit to slip through a passageway. Is it especially error-prone?
+		let is_perp = coincidence > -EPSILON;
 		// Check which side it is on.
 		if 0.0 > movement.ext(normal) {
-			on_pos = true;
+			if is_perp {
+				pos_perp = true;
+			} else {
+				on_pos = true;
+			}
 		} else {
-			on_neg = true;
+			if is_perp {
+				neg_perp = true;
+			} else {
+				on_neg = true;
+			}
 		}
 		// Remove the normal from it.
+		//if !is_perp {
 		result -= normal.scale(normal.dot(&result));
-		if (on_pos && on_neg) {// || (result.length() < EPSILON) {
+		//}
+		if (on_pos && on_neg) || (pos_perp && on_neg) || (on_pos && neg_perp) || (result.length() < EPSILON) {
 			return Vec2::new(0.0, 0.0);
 		}
 	}

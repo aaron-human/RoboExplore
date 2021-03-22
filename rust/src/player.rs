@@ -243,6 +243,7 @@ impl Player {
 		let track_pressed = gamepad.is_down(Button::R) || keyboard.is_down(Key::SPACE);
 		let mut remainder_percent = 1.0;
 		let mut normals : Vec<Vec2> = Vec::new();
+		self.on_ground = false; // Off the ground until proven otherwise.
 		for _iteration in 0..PHYSICS_ITERATION_MAX {
 			// First calculate the projected movement.
 			let mut total_movement = (self.gravity_velocity + self.jump_velocity + kick_velocity) * elapsed_seconds;
@@ -268,7 +269,26 @@ impl Player {
 				&self.position,
 				PLAYER_RADIUS,
 				&total_movement,
-			);
+			);/*
+			let maybe_collision = {
+				let possible = collision.collide_circle_step(
+					&self.position,
+					PLAYER_RADIUS,
+					&total_movement,
+				);
+
+				// Ignore collisions that deflect by basically zero.
+				if let Some(collision) = &possible {
+					let original_final = self.position + total_movement;
+					if (original_final - collision.final_position).length() < EPSILON {
+						None
+					} else {
+						possible
+					}
+				} else {
+					possible
+				}
+			};*/
 			if debug { log(&format!("collision: {:?}", maybe_collision)); }
 
 			// If there is a collision, interact with it.
@@ -283,20 +303,20 @@ impl Player {
 				normals = collision.normals.clone();
 
 				// See how the collision might update the on_ground and hit_ceiling flags.
-				self.on_ground = false;
+				let mut on_ground = false;
 				let mut hit_ceiling = false;
 				let threshold = -0.65 * self.gravity_acceleration.length();
 				// Threshold is below "sqrt(2) / 2" (0.7071) so can handle anything within 45 degrees.
 				for deflection in &collision.deflections {
 					let coincidence = deflection.normal.dot(self.gravity_acceleration);
 					if threshold > coincidence {
-						self.on_ground = true;
+						on_ground = true;
 					}
 					if -threshold < coincidence {
 						hit_ceiling = true;
 					}
 				}
-				if self.on_ground {
+				if on_ground {
 					if debug { log("On ground!"); }
 					self.gravity_velocity.x = 0.0;
 					self.gravity_velocity.y = 0.0;
@@ -313,6 +333,7 @@ impl Player {
 					self.kick_start_velocity.y = 0.0;
 					self.jump_done = true;
 				}
+				self.on_ground |= on_ground;
 			}
 
 			// If the player is trying to snap, then try to collide any safe movement with tracks to see if can snap.
