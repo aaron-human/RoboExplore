@@ -51,3 +51,7 @@ If I wanted to be mean, could make it so if you don't do well enough getting out
 ---
 
 A boss that's a big old robot that you have to crawl through and attack. The robot walks around, you've got to not get stomped and make your way to poles (antenna?) on it. Could maybe have multiple marching around a central core?
+
+---
+
+**Level idea** processing facility. Lots of giant vats of chemical death. You start by going through a clear pipe, watching the neat scenery below. Then you hit a spot where the pipe is broken, and fall into the mess below.
