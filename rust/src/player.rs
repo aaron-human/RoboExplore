@@ -60,6 +60,8 @@ pub struct Player {
 	gravity_velocity : Vec2,
 	/// Whether was on ground last update.
 	on_ground : bool,
+	/// The most "upward" surface normal available.
+	last_surface_normal : Vec2,
 
 	/// The velocity due to jumping.
 	jump_velocity : Vec2,
@@ -116,6 +118,7 @@ impl Player {
 			gravity_acceleration : Vec2::new(0.0, 0.0),
 			gravity_velocity : Vec2::new(0.0, 0.0),
 			on_ground : false,
+			last_surface_normal : Vec2::new(0.0, 0.0),
 
 			jump_velocity : Vec2::new(0.0, 0.0),
 			jump_start_time : -1.0,
@@ -185,7 +188,8 @@ impl Player {
 
 		let debug = keyboard.is_down(Key::DEBUG);
 
-		let gravity_active = EPSILON < self.gravity_acceleration.length() && !self.on_track && !self.in_pneumatic_pipe;
+		let gravity_set = EPSILON < self.gravity_acceleration.length();
+		let gravity_active = gravity_set && !self.on_track && !self.in_pneumatic_pipe;
 
 		// Handle the player's inputs.
 		let mut input_direction = gamepad.direction();
@@ -225,7 +229,7 @@ impl Player {
 
 		// Handle jumping.
 		// This overrides gravity.
-		let gravity_direction = self.gravity_acceleration.norm();
+		let gravity_direction = if gravity_set { self.gravity_acceleration.norm() } else { Vec2::new(0.0, 0.0) };
 		let jump_pressed = gamepad.is_down(Button::A) || keyboard.is_down(Key::UP);
 		if jump_pressed && gravity_active {
 			let height = -self.position.dot(gravity_direction);
@@ -264,7 +268,7 @@ impl Player {
 		}
 
 		// Handle track jumping.
-		let kick_velocity = if self.on_track && jump_pressed && !self.jump_input_used {
+		let kick_velocity = if self.on_track && jump_pressed && !self.jump_input_used && gravity_set {
 			self.on_track = false;
 			let mut kick_direction = input_direction.clone();
 			if EPSILON > kick_direction.length() {
@@ -297,13 +301,24 @@ impl Player {
 		let track_pressed = gamepad.is_down(Button::R) || keyboard.is_down(Key::SPACE);
 		let mut remainder_percent = 1.0;
 		let mut normals : Vec<Vec2> = Vec::new();
+		let mut next_surface_normal : Vec2 = Vec2::new(0.0, 0.0);
 		self.on_ground = false; // Off the ground until proven otherwise.
 		for _iteration in 0..PHYSICS_ITERATION_MAX {
 			// First calculate the projected movement.
 			let mut total_movement = (self.gravity_velocity + self.jump_velocity + kick_velocity) * elapsed_seconds;
-			total_movement.x += input_movement.x;
-			if self.on_track {
-				total_movement.y += input_movement.y;
+			if !self.on_track {
+				// Make the movements relative to the last surface normal.
+				let mut up = self.last_surface_normal;
+				if EPSILON > up.length() {
+					up.y = 1.0; // Default to normal up if none set yet.
+				}
+				let mut right = up.ortho();
+				if 0.0 > right.x {
+					(&mut right).scale(-1.0);
+				}
+				total_movement += right * input_movement.x;
+			} else {
+				total_movement += input_movement;
 			}
 			total_movement *= remainder_percent;
 			if debug { log(&format!("total_movement: {:?}", total_movement)); }
@@ -359,15 +374,21 @@ impl Player {
 				// See how the collision might update the on_ground and hit_ceiling flags.
 				let mut on_ground = false;
 				let mut hit_ceiling = false;
-				let threshold = -0.65 * self.gravity_acceleration.length();
+				let threshold = -0.65;
 				// Threshold is below "sqrt(2) / 2" (0.7071) so can handle anything within 45 degrees.
-				for deflection in &collision.deflections {
-					let coincidence = deflection.normal.dot(self.gravity_acceleration);
-					if threshold > coincidence {
-						on_ground = true;
-					}
-					if -threshold < coincidence {
-						hit_ceiling = true;
+				if gravity_set {
+					for deflection in &collision.deflections {
+						let coincidence = deflection.normal.dot(&gravity_direction);
+						if threshold > coincidence {
+							on_ground = true;
+						}
+						if -threshold < coincidence {
+							hit_ceiling = true;
+						}
+						// Want the most negative one.
+						if 0.0 > coincidence && next_surface_normal.dot(&gravity_direction) > coincidence {
+							next_surface_normal = deflection.normal.clone();
+						}
 					}
 				}
 				if on_ground {
@@ -471,6 +492,7 @@ impl Player {
 				log("Hit player physics iteration max!");
 			}
 		}
+		self.last_surface_normal = next_surface_normal;
 
 		// Store the new position.
 		{

@@ -202,7 +202,6 @@ namespace ExampleProject {
 						maxId = Math.max(maxId, id);
 					}
 				}
-				console.log(tileIdToInfo);
 				// Then add all the tiles.
 				for (let tileId = 0;tileId <= maxId;tileId += 1) {
 					let info = tileIdToInfo.get(tileId);

@@ -303,7 +303,7 @@ impl TiledGeometry {
 		self.collision_rects = simplify_rects(&mut self.collision_rects);
 		self.tracks = simplify_rects(&mut self.tracks);
 		// For debugging: draw all the rectangles.
-		if true {
+		if false {
 			let mut editor = self.debug_buffer.make_editor();
 			editor.clear();
 			if false {
