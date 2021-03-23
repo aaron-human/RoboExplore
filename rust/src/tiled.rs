@@ -67,6 +67,11 @@ impl TiledFile {
 		}
 	}
 
+	/// Gets the URL this was loaded from.
+	pub fn get_url<'a>(&'a self) -> &'a str {
+		&self.url
+	}
+
 	/// Gets a reference to the tile's data.
 	pub fn get_tiles<'a>(&'a self) -> &'a Vec<TiledTile> {
 		&self.tiles

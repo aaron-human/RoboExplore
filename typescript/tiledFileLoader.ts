@@ -131,11 +131,12 @@ namespace ExampleProject {
 					}
 					for (let tileIndex = 0;tileIndex < tiles.length;tileIndex += 1) {
 						const tile : any = tiles[tileIndex];
-						const id : number = idOffset + tile["id"];
+						const tileSetId : number = tile["id"];
+						const id : number = idOffset + tileSetId;
 						const tileInfo = new _PartialTileInfo();
 						tileInfo.url = imageUrl;
-						tileInfo.x = (tileIndex % tileRowCount) * tileWidth;
-						tileInfo.y = (tileColumnCount - Math.floor(tileIndex / tileRowCount) - 1) * tileHeight;
+						tileInfo.x = (tileSetId % tileRowCount) * tileWidth;
+						tileInfo.y = (tileColumnCount - Math.floor(tileSetId / tileRowCount) - 1) * tileHeight;
 						tileInfo.width = tileWidth;
 						tileInfo.height = tileHeight;
 						// Add the boolean property information.
@@ -201,6 +202,7 @@ namespace ExampleProject {
 						maxId = Math.max(maxId, id);
 					}
 				}
+				console.log(tileIdToInfo);
 				// Then add all the tiles.
 				for (let tileId = 0;tileId <= maxId;tileId += 1) {
 					let info = tileIdToInfo.get(tileId);
