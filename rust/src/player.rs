@@ -38,6 +38,9 @@ const MIN_JUMP_HEIGHT : f32 = 16.0;
 /// The min jump height.
 const MAX_JUMP_HEIGHT : f32 = 64.0 + 4.0;
 
+/// The speed to tranvel in a pneumatic pipe.
+const PNEUMATIC_PIPE_SPEED : f32 = 200.0;
+
 /// The player's data.
 pub struct Player {
 	/// The player's position. This is the center of the player.
@@ -71,6 +74,13 @@ pub struct Player {
 	kick_start_velocity : Vec2,
 	/// When the last track kick happened.
 	kick_start_time : f32,
+
+	/// Whether the player is currently in a pneumatic pipe.
+	in_pneumatic_pipe : bool,
+	/// Whether the player is currently exiting a pneumatic pipe.
+	leaving_pneumatic_pipe : bool,
+	/// The current remaining pipe for the player to go through.
+	remaining_pneumatic_pipe_path : Vec<Vec2>,
 
 	/// The display buffer for the player.
 	display : DisplayBuffer,
@@ -115,6 +125,10 @@ impl Player {
 			kick_start_velocity : Vec2::new(0.0, 0.0),
 			kick_start_time : -1.0,
 
+			in_pneumatic_pipe : false,
+			leaving_pneumatic_pipe : false,
+			remaining_pneumatic_pipe_path : Vec::new(),
+
 			display : display_buffer,
 			texture,
 			aiming_right : true,
@@ -129,9 +143,49 @@ impl Player {
 	/// The fuction that updates the player's position and movement.
 	pub fn update(&mut self, current_time : f32, elapsed_seconds : f32, keyboard : &Keyboard, gamepad : &Gamepad, collision : &CollisionSystem, geometry : &TiledGeometry) {
 
+		// If in a pneumatic pipe, then just don't do anything.
+		if self.in_pneumatic_pipe {
+			let mut remainder = PNEUMATIC_PIPE_SPEED * elapsed_seconds;
+			let mut do_remove : bool;
+			while EPSILON < remainder {
+				do_remove = false;
+				if let Some(next) = self.remaining_pneumatic_pipe_path.first() {
+					let distance = (next - self.position).length();
+					if distance < remainder {
+						remainder -= distance;
+						self.position = next.clone();
+						do_remove = true;
+					} else {
+						self.position += (next - self.position).norm().scale(remainder);
+						remainder = 0.0;
+					}
+				} else {
+					// No points left means you're done with this pipe.
+					log("Leaving pneumatic pipe.");
+					self.in_pneumatic_pipe = false;
+					self.leaving_pneumatic_pipe = true;
+					break;
+				}
+				if do_remove {
+					self.remaining_pneumatic_pipe_path.remove(0);
+				}
+			}
+
+			// Store the new position and done.
+			{
+				let mut transform = Mat4::new();
+				transform.translate_before(&Vec3::new(self.position.x, self.position.y, 0.0));
+				if !self.aiming_right {
+					transform.scale_before(&Vec3::new(-1.0, 1.0, 1.0));
+				}
+				self.display.set_transform(&transform);
+			}
+			return;
+		}
+
 		let debug = keyboard.is_down(Key::DEBUG);
 
-		let gravity_active = EPSILON < self.gravity_acceleration.length() && !self.on_track;
+		let gravity_active = EPSILON < self.gravity_acceleration.length() && !self.on_track && !self.in_pneumatic_pipe;
 
 		// Handle the player's inputs.
 		let mut input_direction = gamepad.direction();
@@ -336,9 +390,25 @@ impl Player {
 				self.on_ground |= on_ground;
 			}
 
+			// If the player hits a penumatic pipe, then maybe start sending them along their way.
+			if let Some(hit_info) = geometry.get_activated_pneumatic_pipe(&self.position, &safe_movement) {
+				// If trying to leave the pipe, then don't hit it again.
+				if !self.leaving_pneumatic_pipe {
+					let (_new_position, start_at_start, pipe) = hit_info;
+					log("Starting pneumatic pipe.");
+					self.in_pneumatic_pipe = true;
+					self.remaining_pneumatic_pipe_path = pipe.get_path().clone();
+					if !start_at_start { self.remaining_pneumatic_pipe_path.reverse(); }
+					break; // Don't care about the rest.
+				}
+			} else {
+				self.leaving_pneumatic_pipe = false;
+				self.in_pneumatic_pipe = false;
+			}
+
 			// If the player is trying to snap, then try to collide any safe movement with tracks to see if can snap.
 			// Also check if the starting position is just close enough.
-			if track_pressed && !self.track_input_used {
+			if track_pressed && !self.track_input_used && !self.in_pneumatic_pipe {
 				if !self.on_track {
 					// Try snapping if possible.
 					let closest = geometry.get_closest_track_point(&self.position);

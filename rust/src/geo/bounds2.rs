@@ -97,6 +97,11 @@ impl Bounds2 {
 		EPSILON >= other.y_min - self.y_max
 	}
 
+	/// Checks if this overlaps a given point.
+	pub fn overlaps_point(&self, other : &Vec2) -> bool {
+		self.x_min <= other.x && other.x <= self.x_max && self.y_min <= other.y && other.y <= self.y_max
+	}
+
 	/// Finds the point on the line segment that intersects with this instance.
 	/// When possible tries to find the point that's closest to the start.
 	pub fn collide_with_line_segment(&self, start : &Vec2, end : &Vec2) -> Option<Vec2> {

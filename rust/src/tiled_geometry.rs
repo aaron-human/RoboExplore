@@ -22,6 +22,13 @@ pub struct PneumaticPipe {
 	path : Vec<Vec2>,
 }
 
+impl PneumaticPipe {
+	/// Gets the path of points to traverse through.
+	pub fn get_path<'a>(&'a self) -> &'a Vec<Vec2> {
+		&self.path
+	}
+}
+
 // A way to store directions in a single u8.
 const DIR_UP    : u8 = 0b0001;
 const DIR_LEFT  : u8 = 0b0010;
@@ -98,8 +105,24 @@ impl TiledGeometry {
 		closest
 	}
 
+	/// Gets the pneumatic pipe that the position is currently inside (if any).
+	pub fn get_activated_pneumatic_pipe<'a>(&'a self, position : &Vec2, movement : &Vec2) -> Option<(Vec2, bool, &'a PneumaticPipe)> {
+		let end = position + movement;
+		for pipe in &self.pneumatic_pipes {
+			let maybe_hit = pipe.start_collision.collide_with_line_segment(position, &end);
+			if let Some(hit) = maybe_hit {
+				return Some((hit, true, pipe));
+			}
+			let maybe_hit = pipe.end_collision.collide_with_line_segment(position, &end);
+			if let Some(hit) = maybe_hit {
+				return Some((hit, false, pipe));
+			}
+		}
+		None
+	}
+
 	/// Collects a given penumatic pipe from the given input layer.
-	pub fn load_pneumatic_pipe(&mut self, file : &TiledFile, layer : &TiledTileLayer, mut x : usize, mut y : usize, used_positions : &mut Vec<usize>) -> Result<PneumaticPipe, String> {
+	fn load_pneumatic_pipe(&mut self, file : &TiledFile, layer : &TiledTileLayer, mut x : usize, mut y : usize, used_positions : &mut Vec<usize>) -> Result<PneumaticPipe, String> {
 		let layer_width  = layer.get_width();
 		let layer_height = layer.get_height();
 		let start_position = x + y * layer_width;
@@ -121,9 +144,13 @@ impl TiledGeometry {
 			for rect in tile.get_collision_rectangles() {
 				if "pipeEnter" == rect.r#type {
 					if maybe_start.is_none() {
-						maybe_start = Some(rect.position.clone());
+						let mut translated = rect.position.clone();
+						translated.translate(&offset);
+						maybe_start = Some(translated);
 					} else if maybe_end.is_none() {
-						maybe_end = Some(rect.position.clone());
+						let mut translated = rect.position.clone();
+						translated.translate(&offset);
+						maybe_end = Some(translated);
 						done = true;
 					}
 				}
@@ -276,10 +303,10 @@ impl TiledGeometry {
 		self.collision_rects = simplify_rects(&mut self.collision_rects);
 		self.tracks = simplify_rects(&mut self.tracks);
 		// For debugging: draw all the rectangles.
-		if false {
+		if true {
 			let mut editor = self.debug_buffer.make_editor();
 			editor.clear();
-			{
+			if false {
 				let color = Color::new(255, 0, 0, 255);
 				let z : f32 = -0.8;
 				for rect in &self.collision_rects {
@@ -317,9 +344,27 @@ impl TiledGeometry {
 							&color,
 						);
 					}
+					editor.add_polygon(
+						&vec![
+							Vec3::new(pipe.start_collision.x_min(), pipe.start_collision.y_min(), z),
+							Vec3::new(pipe.start_collision.x_max(), pipe.start_collision.y_min(), z),
+							Vec3::new(pipe.start_collision.x_max(), pipe.start_collision.y_max(), z),
+							Vec3::new(pipe.start_collision.x_min(), pipe.start_collision.y_max(), z),
+						],
+						&color,
+					);
+					editor.add_polygon(
+						&vec![
+							Vec3::new(pipe.end_collision.x_min(), pipe.end_collision.y_min(), z),
+							Vec3::new(pipe.end_collision.x_max(), pipe.end_collision.y_min(), z),
+							Vec3::new(pipe.end_collision.x_max(), pipe.end_collision.y_max(), z),
+							Vec3::new(pipe.end_collision.x_min(), pipe.end_collision.y_max(), z),
+						],
+						&color,
+					);
 				}
 			}
-			{
+			if false {
 				let color = Color::new(0, 255, 0, 255);
 				let z : f32 = -0.85;
 				for rect in &self.tracks {
