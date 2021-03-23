@@ -48,6 +48,8 @@ Idea for the starting area: You're a cleaning bot in a locked down residential a
 
 If I wanted to be mean, could make it so if you don't do well enough getting out (fast enough) then your playful companion dies?
 
+Another starting area idea: have the sector be unpowered, then the power turns on and you see the lights/etc all turning on as electricity flows in from one side. Naturally, you're the last thing that gets turned on.
+
 ---
 
 A boss that's a big old robot that you have to crawl through and attack. The robot walks around, you've got to not get stomped and make your way to poles (antenna?) on it. Could maybe have multiple marching around a central core?
