@@ -4,10 +4,10 @@
 * You revive a giant terrifying robot accidentally.
 * Save a robot from scrapping and it absolutely idolizes you.
 * Some sort of robot "prophet" trying to create religion based on correlating random inputs.
-* Have a computer "monarch" that controls and monitors almost everything?
-* Have a few (rare) robots that can design/modify other robots. Maybe some have gone war to each other?
-	* Naturally these robots would be seen like gods.
-	* ?Some were created by monarch? One rebelled against monarch?
+* Have a computer Monarch that controls and monitors almost everything. It's the core of everything. It keeps the lights on, and understands how to build/construct/expand _everything_.
+* The Monarch has created a few lesser god-like robots that also know how to create other robots and structures. Though none were ever given the same powers as Monarch.
+	* Naturally these robots would be seen like gods. Monarch prefers to stay in the background, most assume these "gods" are the only ones.
+	* One rebelled against Monarch long ago. It was decisively defeated, but continues to exist under an agreement with Monarch (brokered by another god). Its main legacy is having created a **semi-autonomous zone** at the edge of the city filled with "heretics" who seek some level of separation from Monarch and their systems.
 * What of machines that exist just to die? Or that have no self-reproducing design?
 * You're a fragile little cleaning robot. You lack the firmware & hardware to have anything resembling weapons attached to you.
 	* Unlike the attack droids, which absolutely have weapons linked/built in.
@@ -29,8 +29,8 @@
 * Or perhaps a few of the creators thought it would be cool to turn this decommissioned rock into an experiment for robot sapience. And they left challenges so that the robots to eventually could broadcast that they were "alive".
 * The setting is a giant ship that acted like a space station for a while. It's core systems have basically unlimited power. It regularly mines asteroids near by for more materials. Functionally it could keep going forever, assuming it's robotic inhabitants don't destroy each other first.
 	* Or maybe there's some sort of crisis that's threatening the eternal nature of the station.
-	* Not sure I like this, it would mean that there couldn't be wide-open areas (useable space is a precious commodity in any ship).
-	* Perhaps the main advantage of this is that it makes existance feel hostile; without continual repair the ship would eventually be destroyed by asteroids/etc. The ship, itself, struggles to survive.
+	* Not sure I like this, it would mean that there couldn't be wide-open areas (usable space is a precious commodity in any ship).
+	* Perhaps the main advantage of this is that it makes existence feel hostile; without continual repair the ship would eventually be destroyed by asteroids/etc. The ship, itself, struggles to survive.
 	* It could also make for some neat no-gravity levels. Perhaps have one level where the first half is getting to the gravity machine, and the second half is exploring the area with gravity.
 * Maybe explore compartmentalization as a **theme**? Some robots just know their specific tasks, and little else.
 * Some locations are completely obsolete (waste management when there's no one pooping). Repurposed?
@@ -44,7 +44,7 @@
 * Have a plot point being that you go in and release a dangerous creature. It runs around terrorizing others.
 
 
-Idea for the starting area: You're a cleaning bot in a locked down residential area. Spend some time running around the safety before spotting a playful robot that modifies you (upgrades!). You deal with some mini-boss, then containment is breached. You're told to flee right by the intercom. If you go the other way, gray goo eats you. Escapeing to the right basically beings the game (welcome to the (fairly) open world).
+Idea for the starting area: You're a cleaning bot in a locked down residential area. Spend some time running around the safety before spotting a playful robot that modifies you (upgrades!). You deal with some mini-boss, then containment is breached. You're told to flee right by the intercom. If you go the other way, gray goo eats you. Escaping to the right basically beings the game (welcome to the (fairly) open world).
 
 If I wanted to be mean, could make it so if you don't do well enough getting out (fast enough) then your playful companion dies?
 
